@@ -59,6 +59,51 @@ function generateProductSVG(product) {
 }
 
 // ===== Product Data =====
+// ===== Color Options Config =====
+// Color options for order customization (no image change)
+const colorOptions = {
+    'doctor-uniform': [
+        { name: 'White', hex: '#FFFFFF' },
+        { name: 'Light Blue', hex: '#B3D9FF' },
+        { name: 'Mint Green', hex: '#A8E6CF' },
+        { name: 'Navy', hex: '#1A237E' },
+        { name: 'Gray', hex: '#9E9E9E' },
+    ],
+    'staff-uniform': [
+        { name: 'Blue', hex: '#2196F3' },
+        { name: 'Green', hex: '#4CAF50' },
+        { name: 'Pink', hex: '#E91E63' },
+        { name: 'Maroon', hex: '#880E4F' },
+        { name: 'Gray', hex: '#607D8B' },
+        { name: 'Brown', hex: '#795548' },
+    ],
+    'bedsheets': [
+        { name: 'White', hex: '#FFFFFF' },
+        { name: 'Sky Blue', hex: '#4FC3F7' },
+        { name: 'Forest Green', hex: '#388E3C' },
+        { name: 'Navy Blue', hex: '#1A237E' },
+        { name: 'Maroon', hex: '#880E4F' },
+    ],
+    'hospital-linen': [
+        { name: 'White', hex: '#FFFFFF' },
+        { name: 'Teal', hex: '#00897B' },
+        { name: 'Royal Blue', hex: '#1565C0' },
+        { name: 'Forest Green', hex: '#2E7D32' },
+        { name: 'Charcoal', hex: '#424242' },
+    ],
+    'hotel-linen': [
+        { name: 'White', hex: '#FFFFFF' },
+        { name: 'Ivory', hex: '#F5E6CA' },
+        { name: 'Sky Blue', hex: '#4FC3F7' },
+        { name: 'Peach', hex: '#FFAB91' },
+        { name: 'Sage Green', hex: '#81C784' },
+    ],
+};
+
+function getProductColors(product) {
+    return colorOptions[product.category] || colorOptions['hospital-linen'];
+}
+
 const productsData = [
     // ── Doctor Uniform > Male Doctor Uniform ──
     { id: 1, name: "Male Doctor Uniform - Full Sleeve", category: "doctor-uniform", gender: "male", sleeve: "full", price: 850, oldPrice: 1100, rating: 4.8, reviews: 124, badge: "Bestseller", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Premium full-sleeve doctor uniform for men. High-quality wrinkle-resistant cotton blend for all-day comfort.", image: "images/Images/Male Full Sleeve.jpg" },
@@ -83,26 +128,47 @@ const productsData = [
     { id: 17, name: "Female Staff Uniform - Pink Style 02", category: "staff-uniform", gender: "female", sleeve: "half", price: 580, oldPrice: 750, rating: 4.6, reviews: 89, badge: "", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Pink style staff uniform variant for women. Soft and durable fabric.", image: "images/Images/Female Uniform (Pink Style) (2).jpg" },
     { id: 18, name: "Female Staff Uniform - Red Style", category: "staff-uniform", gender: "female", sleeve: "half", price: 590, oldPrice: 760, rating: 4.8, reviews: 143, badge: "Premium", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Elegant red style staff uniform for women. Premium quality fabric.", image: "images/Images/Female Uniform (Red Style).jpg" },
     // ── Bedsheets ──
-    { id: 19, name: "Bedsheet - Candy Striped Pink", category: "bedsheets", price: 350, oldPrice: 450, rating: 4.3, reviews: 234, badge: "", sizes: ["60x90","60x100","90x100"], description: "Hospital-grade candy striped bedsheet in pink." },
+    { id: 19, name: "Bedsheet - Striped Blue & White", category: "bedsheets", price: 350, oldPrice: 450, rating: 4.3, reviews: 234, badge: "", sizes: ["60x90","60x100","90x100"], description: "Hospital-grade striped bedsheet in blue and white.", image: "images/Images/Striped Sheet.jpg" },
     { id: 20, name: "Bedsheet - Checked Blue", category: "bedsheets", price: 320, oldPrice: 420, rating: 4.5, reviews: 189, badge: "", sizes: ["60x90","60x100","90x100"], description: "Blue checked pattern hospital bedsheet." },
     { id: 21, name: "Pillow Cover - Light Blue Set", category: "bedsheets", price: 150, oldPrice: 200, rating: 4.2, reviews: 76, badge: "", sizes: ["Standard","Large"], description: "Set of 2 light blue pillow covers with zipper closure." },
     // ── Hospital Linen ──
-    { id: 22, name: "OT Towel 36\" x 1m", category: "hospital-linen", price: 220, oldPrice: 300, rating: 4.4, reviews: 112, badge: "", sizes: ["36x1m","36x1.25m","60x2m"], description: "High-absorbency OT towel ideal for surgical procedures." },
-    { id: 23, name: "Surgical Cap & Mask Set", category: "hospital-linen", price: 120, oldPrice: 160, rating: 4.6, reviews: 267, badge: "Popular", sizes: ["Standard","Large"], description: "Reusable surgical cap and mask set." },
-    { id: 24, name: "Surgeon Apron - Ladies", category: "hospital-linen", gender: "female", sleeve: "half", price: 450, oldPrice: 580, rating: 4.8, reviews: 43, badge: "", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Ladies surgeon apron with wrap-around design." },
+    { id: 22, name: "Hospital Towel - OT Grade", category: "hospital-linen", price: 220, oldPrice: 300, rating: 4.4, reviews: 112, badge: "", sizes: ["36x1m","36x1.25m","60x2m"], description: "High-absorbency OT towel ideal for surgical procedures.", image: "images/Images/Hospital Towel.jpg" },
+    { id: 23, name: "Surgical Cap & Mask Set", category: "hospital-linen", price: 120, oldPrice: 160, rating: 4.6, reviews: 267, badge: "Popular", sizes: ["Standard","Large"], description: "Reusable surgical cap and mask set.", image: "images/Images/Head cap and Mask.jpg" },
+    { id: 24, name: "Surgeon Apron - Ladies", category: "hospital-linen", gender: "female", sleeve: "half", price: 450, oldPrice: 580, rating: 4.8, reviews: 43, badge: "", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Ladies surgeon apron with side-tie wrap-around design.", image: "images/Images/Surgeon Apron.jpg" },
     { id: 25, name: "Patient Gown - Cotton", category: "hospital-linen", price: 380, oldPrice: 480, rating: 4.3, reviews: 98, badge: "", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Comfortable cotton patient gown." },
-    { id: 26, name: "Orthopedic Surgeon Apron (Gents)", category: "hospital-linen", gender: "male", sleeve: "full", price: 520, oldPrice: 680, rating: 4.9, reviews: 34, badge: "Premium", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Heavy-duty orthopedic surgeon apron." },
+    { id: 26, name: "Surgeon Apron - Gents", category: "hospital-linen", gender: "male", sleeve: "full", price: 520, oldPrice: 680, rating: 4.9, reviews: 34, badge: "Premium", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Heavy-duty surgeon apron for men with full-sleeve design.", image: "images/Images/Male Surgeon Apron.jpg" },
     // ── Hotel Linen ──
     { id: 27, name: "Hotel Bedsheet - Premium White", category: "hotel-linen", price: 480, oldPrice: 620, rating: 4.9, reviews: 78, badge: "Premium", sizes: ["Single","Double","King"], description: "Premium white hotel bedsheet with 300 thread count." },
     { id: 28, name: "Hotel Towel - Big 60x2m", category: "hotel-linen", price: 350, oldPrice: 450, rating: 4.5, reviews: 134, badge: "", sizes: ["Standard","Large","Bath Sheet"], description: "Large hotel bath towel with excellent absorbency." },
+    // ── New Hospital Linen ──
+    { id: 29, name: "Abdominal Sheet 9x9", category: "hospital-linen", price: 280, oldPrice: 380, rating: 4.5, reviews: 89, badge: "New", sizes: ["9x9","Standard"], description: "Surgical abdominal sheet with center hole for OT procedures. High-grade sterile fabric.", image: "images/Images/abdominal Sheet 9x9.jpg" },
+    { id: 30, name: "Surgical Eye Pad", category: "hospital-linen", price: 95, oldPrice: 130, rating: 4.4, reviews: 156, badge: "", sizes: ["Standard"], description: "Reusable surgical eye pad with secure tie straps for post-operative care.", image: "images/Images/Eye Pad.jpg" },
+    { id: 31, name: "Female Surgeon Apron - Green", category: "hospital-linen", gender: "female", sleeve: "full", price: 480, oldPrice: 620, rating: 4.7, reviews: 52, badge: "New", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Full green surgeon apron for women, includes matching cap and mask.", image: "images/Images/Female Surgoen Apron.jpg" },
+    { id: 32, name: "OT Nighty - Patient Wear", category: "hospital-linen", gender: "female", price: 340, oldPrice: 450, rating: 4.6, reviews: 78, badge: "", sizes: ["S","M","L","XL","XXL","XXXL"], description: "Comfortable OT nighty for patients with front button closure.", image: "images/Images/OT Nighty.jpg" },
+    // ── New Bedsheets ──
+    { id: 33, name: "Bedspread & Pillow Cover Set - Striped", category: "bedsheets", price: 420, oldPrice: 550, rating: 4.5, reviews: 67, badge: "New", sizes: ["Single","Double","King"], description: "Premium striped bedspread with matching pillow cover set. Durable hospital-grade fabric.", image: "images/Images/Stripped Bedspread and Pillow Cover.jpg" },
 ];
 productsData.forEach(p => { if (!p.image) p.image = generateProductSVG(p); });
 
 // ===== State =====
 let cart = JSON.parse(localStorage.getItem('ssa_cart') || '[]');
 cart.forEach(item => { const p = productsData.find(x => x.id === item.id); if (p) item.image = p.image; });
+let wishlist = JSON.parse(localStorage.getItem('ssa_wishlist') || '[]');
 let displayedProducts = 12;
 let currentFilter = 'all';
+
+// ===== Wishlist =====
+function isWishlisted(id) { return wishlist.includes(id); }
+function toggleWishlist(id) {
+    const idx = wishlist.indexOf(id);
+    if (idx > -1) { wishlist.splice(idx, 1); } else { wishlist.push(id); }
+    localStorage.setItem('ssa_wishlist', JSON.stringify(wishlist));
+    updateWishlistCount();
+}
+function updateWishlistCount() {
+    const el = document.getElementById('wishlistCount');
+    if (el) { el.textContent = wishlist.length; el.style.display = wishlist.length > 0 ? 'flex' : 'none'; }
+}
 
 // ===== DOM Ready =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -115,8 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== Common Init (all pages) =====
 function initCommon() {
-    // Preloader
-    window.addEventListener('load', () => { setTimeout(() => { const p = document.getElementById('preloader'); if (p) p.classList.add('hidden'); }, 600); });
+    // Preloader — hide after short delay, don't wait for all external resources
+    const hidePreloader = () => { setTimeout(() => { const p = document.getElementById('preloader'); if (p) p.classList.add('hidden'); }, 600); };
+    if (document.readyState === 'complete') hidePreloader();
+    else window.addEventListener('load', hidePreloader);
+    // Fallback: force-hide preloader after 3 seconds regardless
+    setTimeout(() => { const p = document.getElementById('preloader'); if (p) p.classList.add('hidden'); }, 3000);
 
     // Header scroll
     const header = document.getElementById('header');
@@ -182,6 +252,66 @@ function initCommon() {
 
     // Stats counter
     initStatsCounter();
+
+    // Scroll Progress Bar
+    initScrollProgress();
+
+    // Hero Particles
+    initHeroParticles();
+
+    // Add stagger class to shop grids and category grids
+    document.querySelectorAll('.shop-grid, .categories-grid, .testimonial-grid, .mv-grid, .team-grid').forEach(g => {
+        g.classList.add('reveal-stagger');
+    });
+
+    // Mark cards with badges for animated border
+    document.querySelectorAll('.shop-card').forEach(card => {
+        if (card.querySelector('.shop-card-badge')) card.classList.add('has-badge');
+    });
+
+    // 3D Tilt Effect on product cards (desktop only)
+    if (window.innerWidth > 768) {
+        document.addEventListener('mousemove', (e) => {
+            document.querySelectorAll('.shop-card').forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+                    const rotateX = ((y - rect.height / 2) / rect.height) * -6;
+                    const rotateY = ((x - rect.width / 2) / rect.width) * 6;
+                    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+                } else {
+                    card.style.transform = '';
+                }
+            });
+        });
+    }
+
+    // Wishlist heart toggle (persistent)
+    document.addEventListener('click', (e) => {
+        const wishBtn = e.target.closest('.shop-card-wishlist');
+        if (wishBtn) {
+            e.stopPropagation();
+            const pid = parseInt(wishBtn.dataset.productId);
+            if (!pid) return;
+            toggleWishlist(pid);
+            const icon = wishBtn.querySelector('i');
+            if (isWishlisted(pid)) {
+                wishBtn.classList.add('liked');
+                icon.classList.replace('far', 'fas');
+                showToast('Added to wishlist!');
+            } else {
+                wishBtn.classList.remove('liked');
+                icon.classList.replace('fas', 'far');
+                showToast('Removed from wishlist');
+            }
+        }
+    });
+
+    updateWishlistCount();
+
+    // Init wishlist page if on it
+    if (document.body.dataset.page === 'wishlist') initWishlistPage();
 }
 
 // ===== Home Page =====
@@ -262,9 +392,14 @@ function initContactPage() {
 
 // ===== Render Products =====
 function buildProductCard(p) {
-    return `<div class="shop-card reveal active" data-category="${p.category}" data-id="${p.id}">
+    const colors = getProductColors(p);
+    const colorSwatchesHtml = colors ? `<div class="color-swatches" onclick="event.stopPropagation()">
+        ${colors.map((c, i) => `<button class="color-swatch${i === 0 ? ' active' : ''}" data-hex="${c.hex}" data-color-name="${c.name}" title="${c.name}" style="background:${c.hex}${c.hex === '#FFFFFF' ? ';border-color:#ccc' : ''}" onclick="selectCardColor(this)"></button>`).join('')}
+        <span class="color-name">${colors[0].name}</span>
+    </div>` : '';
+    return `<div class="shop-card${p.badge ? ' has-badge' : ''} reveal active" data-category="${p.category}" data-id="${p.id}">
         ${p.badge ? `<span class="shop-card-badge">${p.badge}</span>` : ''}
-        <button class="shop-card-wishlist" aria-label="Wishlist"><i class="far fa-heart"></i></button>
+        <button class="shop-card-wishlist" data-product-id="${p.id}" aria-label="Wishlist"><i class="${isWishlisted(p.id) ? 'fas' : 'far'} fa-heart"></i></button>
         <div class="shop-card-image" onclick="openProductDetail(${p.id})">
             <img src="${p.image}" alt="${p.name}" loading="lazy">
             <div class="shop-card-quick"><button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); addToCart(${p.id})"><i class="fas fa-cart-plus"></i> Add</button></div>
@@ -273,6 +408,7 @@ function buildProductCard(p) {
             <span class="shop-card-category">${p.category.replace(/-/g, ' ')}</span>
             ${p.gender ? `<span class="shop-card-tag ${p.gender}">${p.gender === 'male' ? '<i class="fas fa-mars"></i> Gents' : '<i class="fas fa-venus"></i> Ladies'}${p.sleeve ? ' • ' + p.sleeve.charAt(0).toUpperCase() + p.sleeve.slice(1) + ' Sleeve' : ''}</span>` : ''}
             <h4>${p.name}</h4>
+            ${colorSwatchesHtml}
             <div class="shop-card-rating">${'<i class="fas fa-star"></i>'.repeat(Math.floor(p.rating))}${p.rating % 1 ? '<i class="fas fa-star-half-alt"></i>' : ''}<span>(${p.reviews})</span></div>
             <div class="shop-card-price"><span class="price">₹${p.price}</span><span class="old-price">₹${p.oldPrice}</span></div>
             <div class="shop-card-footer" onclick="event.stopPropagation()">
@@ -302,9 +438,11 @@ function renderProducts(filter = 'all', count = 12, gender = null, sleeve = null
 // ===== Cart Functions =====
 function addToCart(id) {
     const product = productsData.find(p => p.id === id);
+    const colors = getProductColors(product);
+    const defaultColor = colors ? colors[0].name : null;
     const existing = cart.find(item => item.id === id);
     if (existing) existing.qty++;
-    else cart.push({ ...product, qty: 1, selectedSize: product.sizes[0] });
+    else cart.push({ ...product, qty: 1, selectedSize: product.sizes[0], selectedColor: defaultColor });
     saveCart(); updateCartUI(); openCart();
     showToast(`${product.name} added to cart!`);
 }
@@ -329,7 +467,7 @@ function updateCartUI() {
         cartItems.innerHTML = '<div class="cart-empty"><i class="fas fa-shopping-bag"></i><p>Your cart is empty</p><a href="categories.html" class="btn btn-gradient btn-sm">Start Shopping</a></div>';
         cartFooter.style.display = 'none';
     } else {
-        cartItems.innerHTML = cart.map(item => `<div class="cart-item"><div class="cart-item-img"><img src="${item.image}" alt="${item.name}"></div><div class="cart-item-info"><h4>${item.name}</h4><span class="item-meta">Size: ${item.selectedSize}</span><div class="item-price">₹${item.price * item.qty}</div><div class="cart-item-qty"><button onclick="updateQty(${item.id},-1)"><i class="fas fa-minus"></i></button><span>${item.qty}</span><button onclick="updateQty(${item.id},1)"><i class="fas fa-plus"></i></button></div></div><button class="cart-item-remove" onclick="removeFromCart(${item.id})"><i class="fas fa-trash"></i></button></div>`).join('');
+        cartItems.innerHTML = cart.map(item => `<div class="cart-item"><div class="cart-item-img"><img src="${item.image}" alt="${item.name}"></div><div class="cart-item-info"><h4>${item.name}</h4><span class="item-meta">Size: ${item.selectedSize}${item.selectedColor ? ' | Color: ' + item.selectedColor : ''}</span><div class="item-price">₹${item.price * item.qty}</div><div class="cart-item-qty"><button onclick="updateQty(${item.id},-1)"><i class="fas fa-minus"></i></button><span>${item.qty}</span><button onclick="updateQty(${item.id},1)"><i class="fas fa-plus"></i></button></div></div><button class="cart-item-remove" onclick="removeFromCart(${item.id})"><i class="fas fa-trash"></i></button></div>`).join('');
         cartFooter.style.display = 'block';
         cartTotal.textContent = `₹${totalPrice.toLocaleString()}`;
     }
@@ -373,18 +511,21 @@ let pdQuantity = 1;
 function openProductDetail(id) {
     const p = productsData.find(x => x.id === id); if (!p) return;
     const discount = Math.round((1 - p.price / p.oldPrice) * 100);
+    const colors = getProductColors(p);
+    const colorSection = colors ? `<div class="pd-color-section"><h4>Select Color</h4><div class="pd-color-swatches">${colors.map((c, i) => `<button class="pd-color-swatch${i === 0 ? ' active' : ''}" data-hex="${c.hex}" data-color-name="${c.name}" title="${c.name}" style="background:${c.hex}${c.hex === '#FFFFFF' ? ';border-color:#ccc' : ''}" onclick="selectDetailColor(this)"></button>`).join('')}</div><span class="pd-color-name">${colors[0].name}</span></div>` : '';
     const modal = document.getElementById('productDetailModal');
-    modal.innerHTML = `<div class="modal product-detail-modal"><button class="modal-close pd-close" onclick="closeProductDetail()"><i class="fas fa-times"></i></button><div class="pd-grid"><div class="pd-image"><img src="${p.image}" alt="${p.name}">${p.badge ? `<span class="pd-badge">${p.badge}</span>` : ''}</div><div class="pd-info"><span class="pd-category">${p.category.replace(/-/g,' ')}</span><h2 class="pd-title">${p.name}</h2><div class="pd-rating">${'<i class="fas fa-star"></i>'.repeat(Math.floor(p.rating))}<span>(${p.reviews} reviews)</span></div><div class="pd-price"><span class="pd-current-price">₹${p.price}</span><span class="pd-old-price">₹${p.oldPrice}</span><span class="pd-discount">${discount}% OFF</span></div><p class="pd-description">${p.description}</p><div class="pd-size-section"><h4>Select Size</h4><div class="pd-sizes" id="pdSizes-${p.id}">${p.sizes.map((s,i) => `<button class="pd-size-btn ${i===0?'active':''}" data-size="${s}" onclick="selectSize(this,${p.id})">${s}</button>`).join('')}</div></div><div class="pd-qty-section"><h4>Quantity</h4><div class="pd-qty"><button onclick="changePdQty(-1)"><i class="fas fa-minus"></i></button><span id="pdQty">1</span><button onclick="changePdQty(1)"><i class="fas fa-plus"></i></button></div></div><div class="pd-actions"><button class="btn btn-primary btn-lg" onclick="addToCartFromDetail(${p.id})"><i class="fas fa-cart-plus"></i> Add to Cart</button><button class="btn btn-outline-dark btn-lg" onclick="buyNowFromDetail(${p.id})"><i class="fas fa-bolt"></i> Buy Now</button></div><div class="pd-features"><div class="pd-feature"><i class="fas fa-truck"></i> Free delivery above ₹2000</div><div class="pd-feature"><i class="fas fa-undo"></i> 7-day returns</div><div class="pd-feature"><i class="fas fa-shield-alt"></i> Quality guaranteed</div></div></div></div></div>`;
+    modal.innerHTML = `<div class="modal product-detail-modal"><button class="modal-close pd-close" onclick="closeProductDetail()"><i class="fas fa-times"></i></button><div class="pd-grid"><div class="pd-image"><img src="${p.image}" alt="${p.name}">${p.badge ? `<span class="pd-badge">${p.badge}</span>` : ''}</div><div class="pd-info"><span class="pd-category">${p.category.replace(/-/g,' ')}</span><h2 class="pd-title">${p.name}</h2><div class="pd-rating">${'<i class="fas fa-star"></i>'.repeat(Math.floor(p.rating))}<span>(${p.reviews} reviews)</span></div><div class="pd-price"><span class="pd-current-price">₹${p.price}</span><span class="pd-old-price">₹${p.oldPrice}</span><span class="pd-discount">${discount}% OFF</span></div><p class="pd-description">${p.description}</p>${colorSection}<div class="pd-size-section"><h4>Select Size</h4><div class="pd-sizes" id="pdSizes-${p.id}">${p.sizes.map((s,i) => `<button class="pd-size-btn ${i===0?'active':''}" data-size="${s}" onclick="selectSize(this,${p.id})">${s}</button>`).join('')}</div></div><div class="pd-qty-section"><h4>Quantity</h4><div class="pd-qty"><button onclick="changePdQty(-1)"><i class="fas fa-minus"></i></button><span id="pdQty">1</span><button onclick="changePdQty(1)"><i class="fas fa-plus"></i></button></div></div><div class="pd-actions"><button class="btn btn-primary btn-lg" onclick="addToCartFromDetail(${p.id})"><i class="fas fa-cart-plus"></i> Add to Cart</button><button class="btn btn-outline-dark btn-lg" onclick="buyNowFromDetail(${p.id})"><i class="fas fa-bolt"></i> Buy Now</button></div><div class="pd-features"><div class="pd-feature"><i class="fas fa-truck"></i> Free delivery above ₹2000</div><div class="pd-feature"><i class="fas fa-undo"></i> 7-day returns</div><div class="pd-feature"><i class="fas fa-shield-alt"></i> Quality guaranteed</div></div></div></div></div>`;
     modal.classList.add('active'); pdQuantity = 1;
 }
 function changePdQty(d) { pdQuantity = Math.max(1, pdQuantity + d); const el = document.getElementById('pdQty'); if (el) el.textContent = pdQuantity; }
 function selectSize(btn, pid) { btn.parentElement.querySelectorAll('.pd-size-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
 function getSelectedSize(pid) { const c = document.getElementById(`pdSizes-${pid}`); if (!c) return null; const a = c.querySelector('.pd-size-btn.active'); return a ? a.dataset.size : null; }
+function getSelectedColor(pid) { const c = document.querySelector('.pd-color-swatch.active'); return c ? c.dataset.colorName : null; }
 function addToCartFromDetail(id) {
-    const size = getSelectedSize(id); const p = productsData.find(x => x.id === id);
-    const existing = cart.find(i => i.id === id && i.selectedSize === size);
-    if (existing) existing.qty += pdQuantity; else cart.push({ ...p, qty: pdQuantity, selectedSize: size });
-    saveCart(); updateCartUI(); showToast(`${p.name} (${size}) added!`); closeProductDetail(); pdQuantity = 1;
+    const size = getSelectedSize(id); const color = getSelectedColor(id); const p = productsData.find(x => x.id === id);
+    const existing = cart.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
+    if (existing) existing.qty += pdQuantity; else cart.push({ ...p, qty: pdQuantity, selectedSize: size, selectedColor: color || getProductColors(p)?.[0]?.name || null });
+    saveCart(); updateCartUI(); showToast(`${p.name} (${size}${color ? ', ' + color : ''}) added!`); closeProductDetail(); pdQuantity = 1;
 }
 function buyNowFromDetail(id) { addToCartFromDetail(id); openCheckout(); }
 function closeProductDetail() { document.getElementById('productDetailModal').classList.remove('active'); pdQuantity = 1; }
@@ -459,7 +600,7 @@ function placeOrder() {
     if (!currentUser) { document.getElementById('checkoutModal').classList.remove('active'); openLoginModal(); showToast('Please login first'); return; }
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     const pm = document.querySelector('[name="payment"]:checked');
-    const order = { id: 'SSA' + Date.now().toString(36).toUpperCase(), date: new Date().toISOString(), items: cart.map(i => ({ name: i.name, selectedSize: i.selectedSize, qty: i.qty, price: i.price })), total: total > 2000 ? total : total + 150, payment: pm ? pm.value.toUpperCase() : 'COD', status: 'Processing' };
+    const order = { id: 'SSA' + Date.now().toString(36).toUpperCase(), date: new Date().toISOString(), items: cart.map(i => ({ name: i.name, selectedSize: i.selectedSize, selectedColor: i.selectedColor || null, qty: i.qty, price: i.price })), total: total > 2000 ? total : total + 150, payment: pm ? pm.value.toUpperCase() : 'COD', status: 'Processing' };
     const key = 'ssa_orders_' + currentUser.email;
     const orders = JSON.parse(localStorage.getItem(key) || '[]');
     orders.unshift(order); localStorage.setItem(key, JSON.stringify(orders));
@@ -555,6 +696,23 @@ function getAIResponse(msg) {
     return 'I can help with products, pricing, ordering, delivery & contact info. Try "What products do you offer?" or call +91 93666 40060.';
 }
 
+// ===== Color Selection (order-only, no image change) =====
+function selectCardColor(btn) {
+    const swatches = btn.parentElement;
+    swatches.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    const label = swatches.querySelector('.color-name');
+    if (label) label.textContent = btn.dataset.colorName;
+}
+
+function selectDetailColor(btn) {
+    const container = btn.parentElement;
+    container.querySelectorAll('.pd-color-swatch').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    const label = container.parentElement.querySelector('.pd-color-name');
+    if (label) label.textContent = btn.dataset.colorName;
+}
+
 // ===== Utilities =====
 function showToast(msg) {
     const t = document.createElement('div');
@@ -563,11 +721,101 @@ function showToast(msg) {
     document.body.appendChild(t);
     setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 2500);
 }
+
+// ===== Scroll Progress Bar =====
+function initScrollProgress() {
+    let bar = document.querySelector('.scroll-progress');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'scroll-progress';
+        document.body.prepend(bar);
+    }
+    window.addEventListener('scroll', () => {
+        const scrollTop = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        if (docHeight > 0) bar.style.width = (scrollTop / docHeight * 100) + '%';
+    });
+}
+
+// ===== Hero Particles & Shapes =====
+function initHeroParticles() {
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+    // Floating particles
+    let container = hero.querySelector('.hero-particles');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'hero-particles';
+        hero.prepend(container);
+    }
+    for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.width = p.style.height = (Math.random() * 4 + 2) + 'px';
+        p.style.animationDuration = (Math.random() * 10 + 8) + 's';
+        p.style.animationDelay = (Math.random() * 8) + 's';
+        container.appendChild(p);
+    }
+    // Floating gradient shapes
+    for (let i = 1; i <= 3; i++) {
+        const shape = document.createElement('div');
+        shape.className = 'hero-shape hero-shape-' + i;
+        hero.appendChild(shape);
+    }
+}
+
 function revealElements() {
-    document.querySelectorAll('.reveal').forEach(el => {
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger').forEach(el => {
         const top = el.getBoundingClientRect().top;
         if (top < window.innerHeight - 80) el.classList.add('active');
     });
+}
+
+// ===== Wishlist Page =====
+function initWishlistPage() {
+    renderWishlist();
+}
+function renderWishlist() {
+    const grid = document.getElementById('wishlistGrid');
+    const emptyState = document.getElementById('wishlistEmpty');
+    if (!grid) return;
+    const items = productsData.filter(p => wishlist.includes(p.id));
+    if (items.length === 0) {
+        grid.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'flex';
+        return;
+    }
+    if (emptyState) emptyState.style.display = 'none';
+    grid.style.display = 'grid';
+    grid.innerHTML = items.map(p => `<div class="wishlist-card reveal active" data-id="${p.id}">
+        <div class="wishlist-card-image" onclick="openProductDetail(${p.id})">
+            <img src="${p.image}" alt="${p.name}" loading="lazy">
+            ${p.badge ? `<span class="shop-card-badge">${p.badge}</span>` : ''}
+        </div>
+        <div class="wishlist-card-body">
+            <span class="shop-card-category">${p.category.replace(/-/g, ' ')}</span>
+            <h4>${p.name}</h4>
+            <div class="shop-card-rating">${'<i class="fas fa-star"></i>'.repeat(Math.floor(p.rating))}${p.rating % 1 ? '<i class="fas fa-star-half-alt"></i>' : ''}<span>(${p.reviews})</span></div>
+            <div class="shop-card-price"><span class="price">\u20b9${p.price}</span><span class="old-price">\u20b9${p.oldPrice}</span></div>
+            <div class="wishlist-card-actions">
+                <button class="btn btn-primary btn-sm" onclick="addToCart(${p.id})"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+                <button class="btn btn-outline-dark btn-sm" onclick="removeFromWishlist(${p.id})"><i class="fas fa-trash"></i> Remove</button>
+            </div>
+        </div>
+    </div>`).join('');
+}
+function removeFromWishlist(id) {
+    toggleWishlist(id);
+    renderWishlist();
+    showToast('Removed from wishlist');
+}
+function clearWishlist() {
+    wishlist = [];
+    localStorage.setItem('ssa_wishlist', JSON.stringify(wishlist));
+    updateWishlistCount();
+    renderWishlist();
+    showToast('Wishlist cleared');
 }
 
 // ===== Global Exports =====
@@ -596,3 +844,9 @@ window.placeOrder = placeOrder;
 window.buildProductCard = buildProductCard;
 window.renderProducts = renderProducts;
 window.productsData = productsData;
+window.selectCardColor = selectCardColor;
+window.selectDetailColor = selectDetailColor;
+window.removeFromWishlist = removeFromWishlist;
+window.clearWishlist = clearWishlist;
+window.toggleWishlist = toggleWishlist;
+window.isWishlisted = isWishlisted;
