@@ -897,3 +897,231 @@ img { max-width: 100%; height: auto; }
     .stat-number { animation: none; }
     .section-tag { animation: none; }
 }
+
+/* ================================================================
+   TYPOGRAPHY & FONT ENHANCEMENTS  (DM Sans upgrade)
+   ================================================================ */
+
+:root {
+    --font: 'DM Sans', 'Inter', sans-serif;
+    /* Semantic palette additions */
+    --primary-light: #1a63b0;
+    --success: #059669;
+    --warning: #d97706;
+    /* Refined text colours */
+    --text: #1e2a3a;
+    --text-light: #4a5568;
+    --text-muted: #6b7280;
+}
+
+/* Smooth font rendering everywhere */
+body {
+    font-size: 15.5px;
+    line-height: 1.72;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Tighter, heavier headings */
+h1, h2, h3, h4, h5, h6 { letter-spacing: -0.02em; }
+
+/* ── Navbar ── */
+.nav-links > li > a { font-size: 0.88rem; font-weight: 500; letter-spacing: 0.01em; }
+.logo-text { font-size: 1.15rem; letter-spacing: -0.025em; }
+.logo-sub  { font-size: 0.67rem; letter-spacing: 0.22em; font-weight: 600; }
+
+/* ── Top bar ── */
+.top-info span { font-size: 0.77rem; letter-spacing: 0.015em; font-weight: 500; }
+
+/* ── Hero ── */
+.hero-content h1          { letter-spacing: -0.03em; font-weight: 800; }
+.hero-content h1 .highlight { font-style: italic; }
+.hero-content > p         { font-size: 1.05rem; line-height: 1.82; letter-spacing: 0.005em; }
+.hero-badge               { font-size: 0.77rem; font-weight: 600; letter-spacing: 0.06em; }
+
+/* ── Section headers ── */
+.section-tag   { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 6px; padding: 7px 18px; }
+.section-title { letter-spacing: -0.025em; font-weight: 800; }
+.section-desc  { font-size: 0.97rem; line-height: 1.78; }
+
+/* ── Product cards ── */
+.shop-card-body           { padding: 16px 18px 14px; }
+.shop-card-body h4        { font-size: 0.9rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.4; }
+.shop-card-category       { font-size: 0.67rem; letter-spacing: 0.13em; font-weight: 700; }
+.shop-card-price .price   { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.025em; }
+.shop-card-price .old-price { font-size: 0.79rem; }
+.shop-card-badge          { font-size: 0.67rem; font-weight: 700; letter-spacing: 0.07em; padding: 4px 11px; }
+.shop-card-footer .btn    { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.025em; }
+.shop-card-rating i       { font-size: 0.72rem; }
+.shop-card-rating span    { font-size: 0.73rem; margin-left: 2px; }
+.shop-card:hover { box-shadow: 0 24px 60px rgba(14,74,134,0.14), 0 4px 16px rgba(0,0,0,0.06); }
+
+/* Price alignment fix */
+.shop-card-price { gap: 6px; align-items: baseline; }
+
+/* ── Buttons ── */
+.btn    { font-size: 0.88rem; font-weight: 600; letter-spacing: 0.025em; }
+.btn-sm { font-size: 0.78rem; letter-spacing: 0.02em; }
+.btn-lg { font-size: 0.95rem; letter-spacing: 0.03em; }
+
+/* ── Stats section ── */
+.stat-number  { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.04em; }
+.stat-item p  { font-size: 0.82rem; letter-spacing: 0.05em; font-weight: 500; }
+
+/* ── Category cards ── */
+.category-card h3 { font-size: 0.93rem; font-weight: 700; letter-spacing: -0.01em; }
+.category-card p  { font-size: 0.76rem; line-height: 1.62; }
+
+/* ── Why-Us ── */
+.why-feature h4 { font-size: 0.92rem; font-weight: 700; }
+.why-feature p  { font-size: 0.83rem; line-height: 1.68; }
+
+/* ── Testimonials ── */
+.testimonial-card > p       { font-size: 0.9rem; line-height: 1.8; }
+.testimonial-author strong  { font-size: 0.9rem; font-weight: 700; }
+.testimonial-author span    { font-size: 0.75rem; }
+
+/* ── CTA banner ── */
+.cta-content h2 { font-size: clamp(1.5rem, 2.8vw, 2.3rem); font-weight: 800; letter-spacing: -0.025em; }
+.cta-content p  { font-size: 1rem; line-height: 1.78; }
+
+/* ── Footer ── */
+.footer-links h4, .footer-contact h4 { font-size: 0.88rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.footer-links ul li a { font-size: 0.86rem; }
+.footer-about p       { font-size: 0.87rem; line-height: 1.78; }
+.footer-bottom p      { font-size: 0.79rem; letter-spacing: 0.025em; }
+
+/* ── Page heroes (inner pages) ── */
+.page-hero-content h1 { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 800; letter-spacing: -0.025em; }
+.page-hero-tag        { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.breadcrumb           { font-size: 0.82rem; letter-spacing: 0.02em; }
+
+/* ── Services page ── */
+.service-card h3  { font-size: 1.08rem; font-weight: 700; letter-spacing: -0.015em; }
+.service-card > p { font-size: 0.87rem; line-height: 1.73; }
+.process-step h4  { font-size: 0.9rem; font-weight: 700; }
+.process-number   { font-size: 2.2rem; font-weight: 900; letter-spacing: -0.045em; }
+
+/* ── About page ── */
+.about-text-col p { font-size: 0.93rem; line-height: 1.8; }
+.mv-card h3       { font-size: 1.08rem; font-weight: 700; }
+.mv-card p        { font-size: 0.87rem; line-height: 1.72; }
+.team-card h4     { font-size: 1.08rem; font-weight: 700; }
+.team-card > span { font-size: 0.79rem; letter-spacing: 0.04em; font-weight: 600; }
+.team-card p      { font-size: 0.85rem; line-height: 1.7; }
+.about-hl         { font-size: 0.88rem; font-weight: 600; }
+
+/* ── Contact page ── */
+.contact-info h3,
+.contact-form-wrapper h3 { font-size: 1.2rem; font-weight: 700; }
+.contact-card h4         { font-size: 0.88rem; font-weight: 700; }
+.contact-card p          { font-size: 0.83rem; line-height: 1.62; }
+
+/* ── Forms ── */
+.form-group label   { font-size: 0.79rem; font-weight: 600; letter-spacing: 0.03em; }
+.form-group input,
+.form-group textarea,
+.form-group select  { font-size: 0.9rem; font-family: var(--font); color: var(--text); background: #fafbfc; }
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus { background: #fff; }
+::placeholder { color: var(--text-muted); opacity: 0.65; font-size: 0.88rem; }
+
+/* Filter buttons */
+.filter-btn { font-size: 0.79rem; font-weight: 600; letter-spacing: 0.04em; padding: 8px 18px; }
+
+/* ── Modals ── */
+.modal-header h3  { font-size: 1.05rem; font-weight: 700; }
+.cart-header h3   { font-size: 1rem; font-weight: 700; }
+.auth-form h3     { font-size: 1.15rem; font-weight: 700; }
+.auth-tab         { font-size: 0.85rem; font-weight: 600; }
+.account-tab      { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em; }
+
+/* ── Order / Cart ── */
+.cart-item-info h4 { font-size: 0.85rem; font-weight: 600; }
+.cart-total        { font-size: 1.05rem; }
+.order-id-label    { font-size: 0.9rem; font-weight: 700; }
+.order-item-row    { font-size: 0.83rem; }
+
+/* ── Product detail modal ── */
+.pd-title         { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+.pd-current-price { font-size: 1.62rem; font-weight: 900; letter-spacing: -0.03em; }
+.pd-category      { font-size: 0.69rem; letter-spacing: 0.13em; font-weight: 700; }
+.pd-description   { font-size: 0.88rem; line-height: 1.75; }
+
+/* ── Chatbot ── */
+.chatbot-header h4  { font-size: 0.92rem; font-weight: 700; }
+.message-content p  { font-size: 0.83rem; line-height: 1.62; }
+
+/* ── Wishlist ── */
+.wishlist-card-body h4 { font-size: 0.9rem; font-weight: 600; letter-spacing: -0.01em; }
+.wishlist-empty h3     { font-size: 1.4rem; font-weight: 700; }
+
+/* ── Accessibility: focus outlines ── */
+a:focus-visible, button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
+
+/* ================================================================
+   VISUAL ENHANCEMENTS
+   ================================================================ */
+
+/* Better out-of-stock / low-stock badge typography */
+.out-of-stock-card .shop-card-image::after { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.07em; }
+.low-stock-card .shop-card-image::after    { background: rgba(217,119,6,0.92); font-size: 0.7rem; font-weight: 700; padding: 4px 12px; border-radius: 14px; }
+
+/* Wishlist heart active state */
+.shop-card-wishlist.liked { background: #fff0f2; border: 1px solid rgba(230,57,70,0.18); }
+
+/* Product card image: keep zoom effect on desktop only */
+@media (min-width: 769px) {
+    .shop-card-image img { transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    .shop-card:hover .shop-card-image img { transform: scale(1.07); }
+}
+
+/* Softer card hover for product list */
+.shop-card { border-radius: 16px; }
+.shop-card-image { border-radius: 12px 12px 0 0; }
+
+/* Price: add subtle blue tint so it pops */
+.shop-card-price .price { color: #0c47a1; }
+
+/* Search input rounded */
+.search-input-wrap input { border-radius: 12px; padding: 13px 18px; font-size: 0.92rem; }
+
+/* Better active nav link underline */
+.nav-links > li > a.active { color: var(--primary); font-weight: 600; }
+
+/* Breadcrumb current page */
+.breadcrumb > span:last-child { font-weight: 600; color: rgba(255,255,255,0.95); }
+
+/* Improved form section headings */
+.checkout-step h4 { font-size: 1rem; font-weight: 700; }
+
+/* Process connector icon size */
+.process-connector { font-size: 1rem; opacity: 0.5; }
+
+/* Page hero padding tweak for inner pages */
+.page-hero { padding: 150px 0 75px; }
+
+/* Section padding tighten slightly */
+.section-pad { padding: 84px 0; }
+
+/* Footer heading underline style */
+.footer-links h4::after, .footer-contact h4::after { width: 24px; height: 2px; background: linear-gradient(90deg, var(--accent), var(--primary)); }
+
+/* ── Better Scrollbar (Webkit) ── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: rgba(14,74,134,0.25); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover  { background: rgba(14,74,134,0.45); }
+
+/* ── Better selection highlight ── */
+::selection { background: rgba(14,74,134,0.18); color: var(--primary-dark); }
+
+/* ── Disable heavy animations on mobile (supplement existing rule) ── */
+@media (max-width: 768px) {
+    .shop-card:hover { transform: none; box-shadow: var(--shadow); }
+    body { font-size: 15px; }
+    .stat-number { font-size: 2rem; }
+}

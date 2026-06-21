@@ -9,10 +9,13 @@
 //    PORT                      = (auto-set by Render)
 // ============================================================
 
-const express   = require('express');
-const cors      = require('cors');
-const NodeCache = require('node-cache');
-const admin     = require('firebase-admin');
+const express      = require('express');
+const cors         = require('cors');
+const compression  = require('compression');
+const helmet       = require('helmet');
+const rateLimit    = require('express-rate-limit');
+const NodeCache    = require('node-cache');
+const admin        = require('firebase-admin');
 
 // ── Firebase Admin init ───────────────────────────────────────
 let credential;
@@ -52,8 +55,42 @@ function bust(...keys) { keys.forEach(k => cache.del(k)); }
 const app = express();
 const ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://lalithvishnu-hub.github.io').split(',').map(s => s.trim());
 
+// ── Security headers (helmet) ─────────────────────────────────
+app.use(helmet({
+    contentSecurityPolicy: false, // Frontend is on a separate origin; skip CSP here
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+// ── Gzip compression ──────────────────────────────────────────
+app.use(compression());
+
+// ── Rate limiting ─────────────────────────────────────────────
+// Public endpoints: 60 requests / minute per IP
+const publicLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, error: 'Too many requests. Please try again in a moment.' }
+});
+// Admin endpoints: 120 requests / minute (admins do more work)
+const adminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, error: 'Too many requests. Please try again in a moment.' }
+});
+// Write endpoints (POST): 20 per minute per IP
+const writeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, error: 'Too many write requests. Please slow down.' }
+});
+
 app.use(cors({ origin: (origin, cb) => {
-    // Allow requests with no origin (curl, Postman) and listed origins
     if (!origin || ORIGINS.includes(origin)) return cb(null, true);
     cb(new Error('CORS: ' + origin));
 }, credentials: true }));
@@ -67,7 +104,7 @@ app.get('/health', (_, res) => res.json({ ok: true, ts: Date.now(), cacheKeys: c
 // =============================================================
 
 // GET /api/products[?category=doctor-uniform&limit=100]
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', publicLimiter, async (req, res) => {
     try {
         const { category, limit: lim = 100 } = req.query;
         const key = 'products_' + (category || 'all');
@@ -84,7 +121,7 @@ app.get('/api/products', async (req, res) => {
 // GET /api/inventory/status  — lightweight: only returns {productName, size, color, status}
 // This is the main endpoint the frontend calls to show Out-of-Stock / Low-Stock badges.
 // With 200-300 inventory docs it's ~1 Firestore read, served to ALL visitors from cache.
-app.get('/api/inventory/status', async (req, res) => {
+app.get('/api/inventory/status', publicLimiter, async (req, res) => {
     try {
         const data = await cached('inv_status', 180, async () => {
             const snap = await db.collection('inventory').get();
@@ -101,7 +138,7 @@ app.get('/api/inventory/status', async (req, res) => {
 });
 
 // POST /api/orders  — place a new order
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', writeLimiter, async (req, res) => {
     try {
         const { customerEmail, customerName, customerPhone,
                 items, total, payment, address, city, pincode,
@@ -124,7 +161,7 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // GET /api/orders/my?email=... — customer's own orders
-app.get('/api/orders/my', async (req, res) => {
+app.get('/api/orders/my', publicLimiter, async (req, res) => {
     try {
         const { email } = req.query;
         if (!email) return res.status(400).json({ ok: false, error: 'email required' });
@@ -139,7 +176,7 @@ app.get('/api/orders/my', async (req, res) => {
 });
 
 // POST /api/customers  — register / upsert customer
-app.post('/api/customers', async (req, res) => {
+app.post('/api/customers', writeLimiter, async (req, res) => {
     try {
         const { email, firstName, lastName, phone } = req.body;
         if (!email) return res.status(400).json({ ok: false, error: 'email required' });
@@ -155,7 +192,7 @@ app.post('/api/customers', async (req, res) => {
 });
 
 // POST /api/messages  — contact form
-app.post('/api/messages', async (req, res) => {
+app.post('/api/messages', writeLimiter, async (req, res) => {
     try {
         const { name, email, phone, message, subject } = req.body;
         if (!name || !email || !message) {
@@ -194,7 +231,7 @@ async function adminOnly(req, res, next) {
 // =============================================================
 
 // GET /api/admin/dashboard — aggregated stats (cache 30s)
-app.get('/api/admin/dashboard', adminOnly, async (req, res) => {
+app.get('/api/admin/dashboard', adminLimiter, adminOnly, async (req, res) => {
     try {
         const data = await cached('admin_dashboard', 30, async () => {
             // These 4 parallel reads happen on the SERVER — single burst from one IP,
@@ -225,7 +262,7 @@ app.get('/api/admin/dashboard', adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/orders
-app.get('/api/admin/orders', adminOnly, async (req, res) => {
+app.get('/api/admin/orders', adminLimiter, adminOnly, async (req, res) => {
     try {
         const data = await cached('orders_all', 30, async () => {
             const snap = await db.collection('orders').get();
@@ -237,7 +274,7 @@ app.get('/api/admin/orders', adminOnly, async (req, res) => {
 });
 
 // PATCH /api/admin/orders/:id
-app.patch('/api/admin/orders/:id', adminOnly, async (req, res) => {
+app.patch('/api/admin/orders/:id', adminLimiter, adminOnly, async (req, res) => {
     try {
         const { status, trackingId, address, city, pincode } = req.body;
         const update = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
@@ -253,7 +290,7 @@ app.patch('/api/admin/orders/:id', adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/products
-app.get('/api/admin/products', adminOnly, async (req, res) => {
+app.get('/api/admin/products', adminLimiter, adminOnly, async (req, res) => {
     try {
         const data = await cached('products_all', 120, async () => {
             const snap = await db.collection('products').get();
@@ -265,7 +302,7 @@ app.get('/api/admin/products', adminOnly, async (req, res) => {
 });
 
 // POST /api/admin/products  — add product
-app.post('/api/admin/products', adminOnly, async (req, res) => {
+app.post('/api/admin/products', adminLimiter, adminOnly, async (req, res) => {
     try {
         const ref = await db.collection('products').add({
             ...req.body,
@@ -278,7 +315,7 @@ app.post('/api/admin/products', adminOnly, async (req, res) => {
 });
 
 // PATCH /api/admin/products/:id
-app.patch('/api/admin/products/:id', adminOnly, async (req, res) => {
+app.patch('/api/admin/products/:id', adminLimiter, adminOnly, async (req, res) => {
     try {
         await db.collection('products').doc(req.params.id).update({
             ...req.body, updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -298,7 +335,7 @@ app.delete('/api/admin/products/:id', adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/inventory
-app.get('/api/admin/inventory', adminOnly, async (req, res) => {
+app.get('/api/admin/inventory', adminLimiter, adminOnly, async (req, res) => {
     try {
         const data = await cached('inventory_all', 120, async () => {
             const snap = await db.collection('inventory').get();
@@ -310,7 +347,7 @@ app.get('/api/admin/inventory', adminOnly, async (req, res) => {
 });
 
 // PATCH /api/admin/inventory/:id  — update stock status
-app.patch('/api/admin/inventory/:id', adminOnly, async (req, res) => {
+app.patch('/api/admin/inventory/:id', adminLimiter, adminOnly, async (req, res) => {
     try {
         await db.collection('inventory').doc(req.params.id).update({
             status: req.body.status,
@@ -322,7 +359,7 @@ app.patch('/api/admin/inventory/:id', adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/customers
-app.get('/api/admin/customers', adminOnly, async (req, res) => {
+app.get('/api/admin/customers', adminLimiter, adminOnly, async (req, res) => {
     try {
         const data = await cached('customers_all', 120, async () => {
             const snap = await db.collection('customers').get();
@@ -334,7 +371,7 @@ app.get('/api/admin/customers', adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/messages
-app.get('/api/admin/messages', adminOnly, async (req, res) => {
+app.get('/api/admin/messages', adminLimiter, adminOnly, async (req, res) => {
     try {
         // Messages aren't cached — admin needs latest
         const snap = await db.collection('messages').get();
@@ -345,7 +382,7 @@ app.get('/api/admin/messages', adminOnly, async (req, res) => {
 });
 
 // PATCH /api/admin/messages/:id  — mark read
-app.patch('/api/admin/messages/:id', adminOnly, async (req, res) => {
+app.patch('/api/admin/messages/:id', adminLimiter, adminOnly, async (req, res) => {
     try {
         await db.collection('messages').doc(req.params.id).update({ read: req.body.read ?? true });
         bust('admin_dashboard');
