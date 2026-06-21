@@ -573,12 +573,22 @@ async function saveStock(e) {
 
 // ===== Customers =====
 async function loadCustomers() {
+    const tbody = document.getElementById('customersTableBody');
     try {
-        const snap = await db.collection('customers').orderBy('createdAt', 'desc').get();
+        let snap;
+        try {
+            snap = await db.collection('customers').orderBy('createdAt', 'desc').get();
+        } catch (e) {
+            // Fallback: load without ordering if index missing
+            snap = await db.collection('customers').get();
+        }
         allCustomers = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        // Sort client-side
+        allCustomers.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         renderCustomers();
     } catch (err) {
         console.error('Customers error:', err);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty" style="color:red">Failed to load customers.<br><small>' + err.message + '</small></td></tr>';
     }
 }
 

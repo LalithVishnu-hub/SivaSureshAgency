@@ -611,6 +611,8 @@ async function openAccountPanel() {
         let firestoreOrders = [];
         if (window.fireDb) {
             try {
+                // Must sign in anonymously first — Firestore rules require request.auth != null to read
+                if (window.auth) { try { await window.auth.signInAnonymously(); } catch(e) {} }
                 const snap = await fireDb.collection('orders').where('customerEmail', '==', currentUser.email).get();
                 firestoreOrders = snap.docs.map(d => ({
                     id: d.data().orderId,
