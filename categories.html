@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" type="image/png" href="images/Images/SSA Logo.png">
+    <link rel="icon" type="image/jpeg" href="images/Images/SSA Logo.png">
 </head>
 <body data-page="categories">
     <!-- Preloader -->
@@ -36,7 +36,7 @@
         </div>
         <nav class="navbar">
             <div class="container">
-                <a href="index.html" class="logo"><div class="logo-icon"><picture><source type="image/webp" srcset="images/Images/SSA%20Logo-480.webp 480w, images/Images/SSA%20Logo-800.webp 800w" sizes="44px"><source srcset="images/Images/SSA%20Logo-480.png 480w, images/Images/SSA%20Logo-800.png 800w" sizes="44px"><img src="images/Images/SSA Logo.png" alt="SSA Logo" width="44" height="48"></picture></div><div class="logo-text-wrap"><span class="logo-text">Siva Suresh</span><span class="logo-sub">Agency</span></div></a>
+                <a href="index.html" class="logo"><div class="logo-icon"><img src="images/Images/SSA Logo.png" alt="SSA Logo" width="44" height="48"></div><div class="logo-text-wrap"><span class="logo-text">Siva Suresh</span><span class="logo-sub">Agency</span></div></a>
                 <ul class="nav-links" id="navLinks">
                     <li><a href="index.html">Home</a></li>
                     <li><a href="about.html">About</a></li>
@@ -46,7 +46,7 @@
                             <div class="mega-menu-inner">
                                 <div class="mega-col"><h4><a href="categories.html?cat=doctor-uniform"><i class="fas fa-user-md"></i> Doctor Uniform</a></h4><ul><li><a href="categories.html?cat=doctor-uniform&gender=male" style="font-size:0.78rem;font-weight:700;color:var(--primary);padding:4px 0;display:block;">Male Doctor Uniform</a></li><li><a href="categories.html?cat=doctor-uniform&gender=male&sleeve=full">Full Sleeve</a></li><li><a href="categories.html?cat=doctor-uniform&gender=male&sleeve=half">Half Sleeve</a></li><li><a href="categories.html?cat=doctor-uniform&gender=female" style="font-size:0.78rem;font-weight:700;color:var(--primary);padding:4px 0;display:block;margin-top:6px;">Female Doctor Uniform</a></li><li><a href="categories.html?cat=doctor-uniform&gender=female&sleeve=full">Full Sleeve</a></li><li><a href="categories.html?cat=doctor-uniform&gender=female&sleeve=half">Half Sleeve</a></li></ul></div>
                                 <div class="mega-col"><h4><a href="categories.html?cat=staff-uniform"><i class="fas fa-tshirt"></i> Staff Uniform</a></h4><ul><li><a href="categories.html?cat=staff-uniform&gender=male" style="font-size:0.78rem;font-weight:700;color:var(--primary);padding:4px 0;display:block;">Male Staff Uniform</a></li><li><a href="categories.html?cat=staff-uniform&gender=male">All Male Styles</a></li><li><a href="categories.html?cat=staff-uniform&gender=female" style="font-size:0.78rem;font-weight:700;color:var(--primary);padding:4px 0;display:block;margin-top:6px;">Female Staff Uniform</a></li><li><a href="categories.html?cat=staff-uniform&gender=female">All Female Styles</a></li><li><a href="categories.html?cat=staff-uniform">All Staff Uniforms</a></li></ul></div>
-                                <div class="mega-col"><h4><i class="fas fa-bed"></i> Linen & Bedsheets</h4><ul><li><a href="categories.html?cat=bedsheets">Bedsheets & Pillow Covers</a></li><li><a href="categories.html?cat=hospital-linen">Hospital Linen</a></li><li><a href="categories.html?cat=hotel-linen">Hotel Linen</a></li></ul></div>
+                                <div class="mega-col"><h4><a href="categories.html?cat=hospital-linen"><i class="fas fa-bed"></i> Linen & Bedsheets</a></h4><ul><li><a href="categories.html?cat=bedsheets">Bedsheets & Pillow Covers</a></li><li><a href="categories.html?cat=hospital-linen" style="font-size:0.78rem;font-weight:700;color:var(--primary);padding:4px 0;display:block;margin-top:6px;">Hospital Linen</a></li><li><a href="categories.html?cat=hospital-linen">Surgeon Aprons</a></li><li><a href="categories.html?cat=hospital-linen">OT Accessories</a></li><li><a href="categories.html?cat=hospital-linen">Patient Wear</a></li><li><a href="categories.html?cat=hotel-linen" style="font-size:0.78rem;font-weight:700;color:var(--primary);padding:4px 0;display:block;margin-top:6px;">Hotel Linen</a></li></ul></div>
                                 <div class="mega-col mega-cta"><div class="mega-promo"><span class="mega-promo-tag">Special Offer</span><h4>Bulk Order Discounts</h4><p>Get up to 25% off on bulk institutional orders</p><a href="contact.html" class="btn btn-gradient btn-sm">Get Quote</a></div></div>
                             </div>
                         </div>
@@ -56,6 +56,10 @@
                 </ul>
                 <div class="nav-actions">
                     <button class="nav-icon-btn" id="searchToggle" aria-label="Search"><i class="fas fa-search"></i></button>
+                    <a href="wishlist.html" class="nav-icon-btn wishlist-nav-btn" aria-label="Wishlist">
+                        <i class="fas fa-heart"></i>
+                        <span class="cart-count" id="wishlistCount" style="display:none;">0</span>
+                    </a>
                     <button class="nav-icon-btn" id="authBtn" aria-label="Account"><i class="fas fa-user"></i></button>
                     <button class="nav-icon-btn cart-toggle" aria-label="Cart" id="cartToggle"><i class="fas fa-shopping-cart"></i><span class="cart-count" id="cartCount">0</span></button>
                     <a href="categories.html" class="btn btn-gradient nav-cta">Shop Now</a>
@@ -130,7 +134,7 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-grid">
-                <div class="footer-about"><a href="index.html" class="logo"><div class="logo-icon"><picture><source type="image/webp" srcset="images/Images/SSA%20Logo-480.webp 480w, images/Images/SSA%20Logo-800.webp 800w" sizes="44px"><source srcset="images/Images/SSA%20Logo-480.png 480w, images/Images/SSA%20Logo-800.png 800w" sizes="44px"><img src="images/Images/SSA Logo.png" alt="SSA Logo" width="44" height="48"></picture></div><div class="logo-text-wrap"><span class="logo-text">Siva Suresh</span><span class="logo-sub">Agency</span></div></a><p>Leading manufacturers and suppliers of premium hospital linen, medical uniforms, and hotel textiles since 2010.</p><div class="social-links"><a href="#"><i class="fab fa-facebook-f"></i></a><a href="#"><i class="fab fa-instagram"></i></a><a href="#"><i class="fab fa-twitter"></i></a><a href="#"><i class="fab fa-linkedin-in"></i></a></div></div>
+                <div class="footer-about"><a href="index.html" class="logo"><div class="logo-icon"><img src="images/Images/SSA Logo.png" alt="SSA Logo" width="44" height="48"></div><div class="logo-text-wrap"><span class="logo-text">Siva Suresh</span><span class="logo-sub">Agency</span></div></a><p>Leading manufacturers and suppliers of premium hospital linen, medical uniforms, and hotel textiles since 2010.</p><div class="social-links"><a href="#"><i class="fab fa-facebook-f"></i></a><a href="#"><i class="fab fa-instagram"></i></a><a href="#"><i class="fab fa-twitter"></i></a><a href="#"><i class="fab fa-linkedin-in"></i></a></div></div>
                 <div class="footer-links"><h4>Quick Links</h4><ul><li><a href="about.html">About Us</a></li><li><a href="categories.html">Shop Online</a></li><li><a href="services.html">Services</a></li><li><a href="contact.html">Contact</a></li></ul></div>
                 <div class="footer-links"><h4>Categories</h4><ul><li><a href="categories.html?cat=doctor-uniform">Doctor Uniform</a></li><li><a href="categories.html?cat=staff-uniform">Staff Uniform</a></li><li><a href="categories.html?cat=bedsheets">Bedsheets</a></li><li><a href="categories.html?cat=hospital-linen">Hospital Linen</a></li><li><a href="categories.html?cat=hotel-linen">Hotel Linen</a></li></ul></div>
                 <div class="footer-contact"><h4>Get In Touch</h4><p><i class="fas fa-map-marker-alt"></i> PVT Towers, 37/10, Selvam Nagar, Erode - 638 011</p><p><i class="fas fa-envelope"></i> <a href="mailto:sivasureshagency@gmail.com">sivasureshagency@gmail.com</a></p><p><i class="fas fa-phone-alt"></i> <a href="tel:+919366640050">+91 93666 40050</a></p></div>
