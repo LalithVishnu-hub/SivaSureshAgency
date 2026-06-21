@@ -8,7 +8,7 @@ import { initializeApp, getApps, getApp }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
     getFirestore, collection, getDocs, addDoc,
-    doc, getDoc, updateDoc, deleteDoc,
+    doc, getDoc, setDoc, updateDoc, deleteDoc,
     query, orderBy as _orderBy, where as _where,
     serverTimestamp, increment
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -63,9 +63,10 @@ class DR {
     constructor(colRef, id) {
         this._ref = doc(_db, colRef.path ? colRef.path.split('/').pop() : colRef._query?.path?.segments?.join('/') || colRef.id, id);
     }
-    async get()          { return wrapDoc(await getDoc(this._ref)); }
-    async update(data)   { return updateDoc(this._ref, data); }
-    async delete()       { return deleteDoc(this._ref); }
+    async get()              { return wrapDoc(await getDoc(this._ref)); }
+    async set(data, opts)    { return setDoc(this._ref, data, opts || {}); }
+    async update(data)       { return updateDoc(this._ref, data); }
+    async delete()           { return deleteDoc(this._ref); }
 }
 
 // ── Collection ref ────────────────────────────────────────────────────

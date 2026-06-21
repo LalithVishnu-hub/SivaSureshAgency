@@ -44,26 +44,20 @@ async function saveOrderToFirebase(order, shippingDetails) {
         // Mark as synced in localStorage so syncPendingOrders skips it
         _markSynced(order.id, shippingDetails.email);
 
-        // Update or create customer record
-        const customerRef = fireDb.collection('customers');
-        const existingCustomer = await customerRef.where('email', '==', shippingDetails.email).get();
-        if (existingCustomer.empty) {
-            await customerRef.add({
-                name: shippingDetails.firstname + ' ' + shippingDetails.lastname,
-                email: shippingDetails.email,
-                phone: shippingDetails.phone,
-                orderCount: 1,
-                totalSpent: order.total,
-                createdAt: fsServerTimestamp()
-            });
-        } else {
-            const doc = existingCustomer.docs[0];
-            await doc.ref.update({
-                orderCount: fsIncrement(1),
-                totalSpent: fsIncrement(order.total),
-                phone: shippingDetails.phone
-            });
-        }
+        // Upsert customer record using email as doc ID (no read needed)
+        const customerDocId = shippingDetails.email.replace(/[^a-zA-Z0-9]/g, '_');
+        const customerDocRef = fireDb.collection('customers').doc(customerDocId);
+        await customerDocRef.set({
+            name:  (shippingDetails.firstname + ' ' + shippingDetails.lastname).trim(),
+            email: shippingDetails.email,
+            phone: shippingDetails.phone || '',
+            createdAt: fsServerTimestamp()
+        }, { merge: true });
+        // Increment counts separately so they don't reset on merge
+        await customerDocRef.update({
+            orderCount: fsIncrement(1),
+            totalSpent: fsIncrement(order.total)
+        });
     } catch (err) {
         console.error('Firebase order save error:', err);
         // Will be retried automatically by syncPendingOrders on next page load
@@ -138,22 +132,20 @@ async function saveCustomerToFirebase(customerData) {
     try {
         if (!window.fireDb) { console.log('[customer] Firebase not ready'); return; }
         await _ensureAuth();
-        const fullName = (customerData.firstName || '') + ' ' + (customerData.lastName || '');
-        const existing = await fireDb.collection('customers').where('email', '==', customerData.email).get();
-        if (existing.empty) {
-            console.log('[customer] Creating new customer:', customerData.email);
-            await fireDb.collection('customers').add({
-                name: fullName,
-                email: customerData.email,
-                phone: customerData.phone || '',
-                orderCount: 0,
-                totalSpent: 0,
-                createdAt: fsServerTimestamp()
-            });
-            console.log('[customer] ✓ Customer saved to Firestore');
-        } else {
-            console.log('[customer] Customer already exists');
-        }
+        const fullName = ((customerData.firstName || '') + ' ' + (customerData.lastName || '')).trim();
+        // Use email as document ID (URL-safe) — prevents duplicates without needing a read
+        const docId = customerData.email.replace(/[^a-zA-Z0-9]/g, '_');
+        const docRef = fireDb.collection('customers').doc(docId);
+        console.log('[customer] Saving customer doc:', docId);
+        await docRef.set({
+            name:       fullName,
+            email:      customerData.email,
+            phone:      customerData.phone || '',
+            orderCount: 0,
+            totalSpent: 0,
+            createdAt:  fsServerTimestamp()
+        }, { merge: true }); // merge: won't overwrite if doc already exists
+        console.log('[customer] ✓ Customer saved to Firestore');
     } catch (err) {
         console.error('[customer] ✗ Save failed:', err.message || err);
     }
