@@ -620,20 +620,31 @@ async function saveStock(e) {
 async function loadCustomers() {
     const tbody = document.getElementById('customersTableBody');
     try {
+        // Debug: log auth state
+        const user = window.getCurrentUser();
+        if (!user) {
+            console.error('[customers] Not authenticated');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty" style="color:red">Auth Error: Not authenticated. Refresh and login.</td></tr>';
+            return;
+        }
+        console.log('[customers] Authenticated as:', user.email);
+        
         let snap;
         try {
             snap = await db.collection('customers').orderBy('createdAt', 'desc').get();
         } catch (e) {
             // Fallback: load without ordering if index missing
+            console.log('[customers] OrderBy failed, retrying:', e.message);
             snap = await db.collection('customers').get();
         }
         allCustomers = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         // Sort client-side
         allCustomers.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        console.log('[customers] Loaded', allCustomers.length, 'customers');
         renderCustomers();
     } catch (err) {
         console.error('Customers error:', err);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty" style="color:red">Failed to load customers.<br><small>' + err.message + '</small></td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty" style="color:red">Error: ' + err.message + '</td></tr>';
     }
 }
 
