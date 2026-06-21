@@ -51,9 +51,14 @@
                 <a href="#" class="nav-item" data-page="products"><i class="fas fa-tshirt"></i> Products</a>
                 <a href="#" class="nav-item" data-page="inventory"><i class="fas fa-warehouse"></i> Inventory</a>
                 <a href="#" class="nav-item" data-page="customers"><i class="fas fa-users"></i> Customers</a>
+                <a href="#" class="nav-item" data-page="messages"><i class="fas fa-envelope"></i> Messages <span class="nav-badge" id="msgBadge" style="display:none">0</span></a>
             </nav>
             <div class="sidebar-footer">
-                <button onclick="handleAdminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <div class="sidebar-user">
+                    <div class="sidebar-avatar" id="sidebarAvatar">A</div>
+                    <div class="sidebar-user-info"><span id="adminName">Admin</span><small>Administrator</small></div>
+                </div>
+                <button onclick="handleAdminLogout()"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
             </div>
         </aside>
 
@@ -62,45 +67,41 @@
             <!-- Top Bar -->
             <header class="topbar">
                 <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-                <h2 id="pageTitle">Dashboard</h2>
+                <div class="topbar-title"><h2 id="pageTitle">Dashboard</h2><p id="pageSubtitle">Welcome back, <span id="adminNameTop">Admin</span></p></div>
                 <div class="topbar-right">
-                    <button class="btn-icon" onclick="openModal('resetPasswordModal')" title="Reset Password"><i class="fas fa-key"></i></button>
-                    <span id="adminName">Admin</span>
-                    <a href="index.html" target="_blank" class="btn-sm"><i class="fas fa-external-link-alt"></i> View Site</a>
-                    <button class="btn-icon" onclick="handleAdminLogout()" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+                    <button class="topbar-btn" onclick="loadDashboard()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                    <button class="topbar-btn" onclick="openModal('resetPasswordModal')" title="Change Password"><i class="fas fa-key"></i></button>
+                    <a href="index.html" target="_blank" class="btn-view-site"><i class="fas fa-external-link-alt"></i> View Site</a>
                 </div>
             </header>
 
             <!-- Dashboard Page -->
             <div class="page active" id="page-dashboard">
                 <div class="stats-row">
-                    <div class="stat-card">
-                        <div class="stat-icon blue"><i class="fas fa-box"></i></div>
-                        <div class="stat-info">
-                            <h3 id="statTotalOrders">0</h3>
-                            <p>Total Orders</p>
-                        </div>
+                    <div class="stat-card blue">
+                        <div class="stat-icon-wrap"><i class="fas fa-box"></i></div>
+                        <div class="stat-value" id="statTotalOrders">0</div>
+                        <div class="stat-label">Total Orders</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon orange"><i class="fas fa-clock"></i></div>
-                        <div class="stat-info">
-                            <h3 id="statPending">0</h3>
-                            <p>Pending Orders</p>
-                        </div>
+                    <div class="stat-card orange">
+                        <div class="stat-icon-wrap"><i class="fas fa-clock"></i></div>
+                        <div class="stat-value" id="statPending">0</div>
+                        <div class="stat-label">Pending Orders</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon green"><i class="fas fa-rupee-sign"></i></div>
-                        <div class="stat-info">
-                            <h3 id="statRevenue">₹0</h3>
-                            <p>Total Revenue</p>
-                        </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon-wrap"><i class="fas fa-rupee-sign"></i></div>
+                        <div class="stat-value" id="statRevenue">₹0</div>
+                        <div class="stat-label">Total Revenue</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
-                        <div class="stat-info">
-                            <h3 id="statCustomers">0</h3>
-                            <p>Customers</p>
-                        </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon-wrap"><i class="fas fa-users"></i></div>
+                        <div class="stat-value" id="statCustomers">0</div>
+                        <div class="stat-label">Customers</div>
+                    </div>
+                    <div class="stat-card pink">
+                        <div class="stat-icon-wrap"><i class="fas fa-envelope"></i></div>
+                        <div class="stat-value" id="statMessages">0</div>
+                        <div class="stat-label">New Messages</div>
                     </div>
                 </div>
                 <div class="dashboard-grid">
@@ -118,6 +119,7 @@
             <!-- Orders Page -->
             <div class="page" id="page-orders">
                 <div class="page-toolbar">
+                    <div class="toolbar-left">
                     <div class="filter-group">
                         <button class="filter-btn active" data-status="all">All</button>
                         <button class="filter-btn" data-status="Processing">Pending</button>
@@ -126,7 +128,8 @@
                         <button class="filter-btn" data-status="Delivered">Delivered</button>
                         <button class="filter-btn" data-status="Cancelled">Cancelled</button>
                     </div>
-                    <input type="text" id="orderSearch" placeholder="Search order ID or customer..." class="search-input">
+                    </div></div>
+                    <div class="toolbar-right"><input type="text" id="orderSearch" placeholder="Search order ID or customer..." class="search-input"></div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table" id="ordersTable">
@@ -149,9 +152,13 @@
             <!-- Products Page -->
             <div class="page" id="page-products">
                 <div class="page-toolbar">
-                    <button class="btn-primary" onclick="openProductModal()"><i class="fas fa-plus"></i> Add Product</button>
-                    <button class="btn-secondary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Seed / Sync Products</button>
-                    <input type="text" id="productSearch" placeholder="Search products..." class="search-input">
+                    <div class="toolbar-left">
+                        <button class="btn-primary" onclick="openProductModal()"><i class="fas fa-plus"></i> Add Product</button>
+                        <button class="btn-secondary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync Products</button>
+                    </div>
+                    <div class="toolbar-right">
+                        <input type="text" id="productSearch" placeholder="Search products..." class="search-input">
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table" id="productsTable">
@@ -174,8 +181,10 @@
             <!-- Inventory Page -->
             <div class="page" id="page-inventory">
                 <div class="page-toolbar">
-                    <h3 style="margin:0;">Stock Management</h3>
-                    <button class="btn-primary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync Products</button>
+                    <div class="toolbar-left"><h3 style="margin:0;font-size:1rem;font-weight:700;">Stock Management</h3></div>
+                    <div class="toolbar-right">
+                        <button class="btn-primary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync Products</button>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table" id="inventoryTable">
@@ -194,11 +203,26 @@
                 </div>
             </div>
 
+            <!-- Messages Page -->
+            <div class="page" id="page-messages">
+                <div class="page-toolbar">
+                    <div class="toolbar-left"><h3 style="margin:0;font-size:1rem;font-weight:700;">Customer Messages</h3></div>
+                    <div class="toolbar-right">
+                        <button class="btn-secondary" onclick="markAllRead()"><i class="fas fa-check-double"></i> Mark All Read</button>
+                        <input type="text" id="messageSearch" placeholder="Search messages..." class="search-input" oninput="renderMessages()">
+                    </div>
+                </div>
+                <div class="info-banner"><i class="fas fa-info-circle"></i><div><strong>Business Email Setup:</strong> To receive these messages at <em>admin@sivasureshagency.com</em>, set up email hosting via your domain provider (e.g., Zoho Mail Free, Google Workspace). Contact form submissions are saved here automatically.</div></div>
+                <div id="messagesList"><p class="empty"><i class="fas fa-envelope-open"></i>No messages yet. Messages from the contact form will appear here.</p></div>
+            </div>
+
             <!-- Customers Page -->
             <div class="page" id="page-customers">
                 <div class="page-toolbar">
-                    <h3 style="margin:0;">Registered Customers</h3>
-                    <input type="text" id="customerSearch" placeholder="Search customers..." class="search-input">
+                    <div class="toolbar-left"><h3 style="margin:0;font-size:1rem;font-weight:700;">Registered Customers</h3></div>
+                    <div class="toolbar-right">
+                        <input type="text" id="customerSearch" placeholder="Search customers..." class="search-input">
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table" id="customersTable">
@@ -266,7 +290,16 @@
                     </div>
                     <div class="form-group"><label>Sizes (comma separated) *</label><input type="text" id="pSizes" placeholder="S,M,L,XL,XXL,XXXL" required></div>
                     <div class="form-group"><label>Description</label><textarea id="pDescription" rows="3"></textarea></div>
-                    <div class="form-group"><label>Image Path</label><input type="text" id="pImage" placeholder="images/Images/filename.jpg"></div>
+                    <div class="form-group">
+                        <label>Product Image</label>
+                        <img id="pImagePreview" class="img-preview" src="" alt="Preview">
+                        <div class="img-upload-wrap" onclick="document.getElementById('pImageFile').click()">
+                            <input type="file" id="pImageFile" accept="image/*" style="display:none" onchange="handleProductImageUpload(event)">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Click to upload image (JPG, PNG, WEBP)</span>
+                        </div>
+                        <input type="text" id="pImage" placeholder="Or paste image URL / path" style="margin-top:6px;">
+                    </div>
                     <div class="form-group"><label>Badge</label><input type="text" id="pBadge" placeholder="New, Popular, Premium, Bestseller"></div>
                     <button type="submit" class="btn-primary btn-full"><i class="fas fa-save"></i> Save Product</button>
                 </form>

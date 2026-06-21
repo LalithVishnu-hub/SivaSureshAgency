@@ -111,13 +111,28 @@ class ColRef {
 
     async get() {
         // Use runQuery (POST) — the list (GET) API returns 403 on named databases.
-        // Fetches up to 1000 docs per batch; cursor-paginates if collection is larger.
+        // Push WHERE filters server-side so only matching docs are fetched (critical for
+        // large collections like inventory with 1800+ docs).
+        // Cursor-paginates if unfiltered collection exceeds 1000 docs.
+
+        const FS_OPS = { '==':'EQUAL','!=':'NOT_EQUAL','<':'LESS_THAN','<=':'LESS_THAN_OR_EQUAL','>':'GREATER_THAN','>=':'GREATER_THAN_OR_EQUAL','array-contains':'ARRAY_CONTAINS' };
+        const serverWheres = this._wheres.filter(w => FS_OPS[w.op]);
+        const clientWheres = this._wheres.filter(w => !FS_OPS[w.op]);
+        const hasServerFilter = serverWheres.length > 0;
+
         let all = [], lastDocName = null, batchCount = 0;
         do {
             const q = { from: [{ collectionId: this._name }], limit: 1000 };
-            if (lastDocName) {
+            // Cursor pagination — only when no server filters (avoids composite index needs)
+            if (lastDocName && !hasServerFilter) {
                 q.orderBy = [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }];
                 q.startAt = { values: [{ referenceValue: lastDocName }], before: false };
+            }
+            // Server-side WHERE (single or composite AND)
+            if (serverWheres.length === 1) {
+                q.where = { fieldFilter: { field: { fieldPath: serverWheres[0].f }, op: FS_OPS[serverWheres[0].op], value: _toV(serverWheres[0].v) } };
+            } else if (serverWheres.length > 1) {
+                q.where = { compositeFilter: { op: 'AND', filters: serverWheres.map(w => ({ fieldFilter: { field: { fieldPath: w.f }, op: FS_OPS[w.op], value: _toV(w.v) } })) } };
             }
             const res = await _fetch(`${_FS}:runQuery`, {
                 method: 'POST',
@@ -127,24 +142,17 @@ class ColRef {
             const rawDocs = rawArr.filter(r => r.document).map(r => r.document);
             batchCount = rawDocs.length;
             all = all.concat(rawDocs.map(_parseDoc).filter(Boolean));
-            lastDocName = batchCount === 1000 ? (rawDocs[rawDocs.length - 1]?.name || null) : null;
+            // Only paginate for unfiltered queries (filtered results are always < 1000)
+            lastDocName = (!hasServerFilter && batchCount === 1000) ? (rawDocs[rawDocs.length - 1]?.name || null) : null;
         } while (lastDocName);
 
-        // Client-side where filtering
+        // Client-side fallback for unsupported operators (e.g. 'in')
         let docs = all;
-        for (const { f, op, v } of this._wheres) {
+        for (const { f, op, v } of clientWheres) {
             docs = docs.filter(d => {
                 const val = d.data()[f];
-                switch (op) {
-                    case '==': return val === v;
-                    case '!=': return val !== v;
-                    case '<' : return val < v;
-                    case '<=': return val <= v;
-                    case '>' : return val > v;
-                    case '>=': return val >= v;
-                    case 'array-contains': return Array.isArray(val) && val.includes(v);
-                    default: return true;
-                }
+                if (op === 'in') return Array.isArray(v) && v.includes(val);
+                return true;
             });
         }
 

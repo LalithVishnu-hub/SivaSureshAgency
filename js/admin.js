@@ -31,7 +31,11 @@ function initializeAuthListener() {
         if (user && user.email) {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('adminPanel').style.display = 'flex';
-            document.getElementById('adminName').textContent = user.email.split('@')[0];
+            const name = user.email.split('@')[0];
+            document.getElementById('adminName').textContent = name;
+            if (document.getElementById('adminNameTop')) document.getElementById('adminNameTop').textContent = name;
+            const av = document.getElementById('sidebarAvatar');
+            if (av) av.textContent = name.charAt(0).toUpperCase();
             // Wait for Firestore (window.db) to be ready before loading data
             waitForDbThenLoad();
         } else {
@@ -102,7 +106,12 @@ document.querySelectorAll('.nav-item').forEach(item => {
         if (page === 'products') loadProducts();
         if (page === 'inventory') loadInventory();
         if (page === 'customers') loadCustomers();
+        if (page === 'messages') loadMessages();
         if (page === 'dashboard') loadDashboard();
+        // Update subtitle
+        const subtitles = {dashboard:'Overview & analytics',orders:'Manage customer orders',products:'Product catalogue',inventory:'Stock levels',customers:'Registered users',messages:'Contact form submissions'};
+        const sub = document.getElementById('pageSubtitle');
+        if (sub) { const n = document.getElementById('adminNameTop')?.textContent||'Admin'; sub.innerHTML = (subtitles[page]||page)+', <span id="adminNameTop">'+n+'</span>'; }
         // Close sidebar on mobile
         if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
     });
@@ -113,29 +122,40 @@ function toggleSidebar() {
 }
 
 // ===== Dashboard =====
+let _dashboardCache = null;
 async function loadDashboard() {
     try {
-        const ordersSnap = await db.collection('orders').get();
-        const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const customersSnap = await db.collection('customers').get();
+        // Parallel fetch: orders + customers + low-stock inventory
+        const [ordersSnap, customersSnap, lowStockSnap, messagesSnap] = await Promise.all([
+            db.collection('orders').get(),
+            db.collection('customers').get(),
+            db.collection('inventory').where('quantity', '<', 10).get(),
+            db.collection('messages').get()
+        ]);
 
+        const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const totalOrders = orders.length;
         const pending = orders.filter(o => o.status === 'Processing').length;
         const revenue = orders.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + (o.total || 0), 0);
-        const customers = customersSnap.size;
+        const unreadMsgs = messagesSnap.docs.filter(d => !d.data().read).length;
 
         document.getElementById('statTotalOrders').textContent = totalOrders;
         document.getElementById('statPending').textContent = pending;
         document.getElementById('statRevenue').textContent = '\u20b9' + revenue.toLocaleString();
-        document.getElementById('statCustomers').textContent = customers;
+        document.getElementById('statCustomers').textContent = customersSnap.size;
+        document.getElementById('statMessages').textContent = unreadMsgs;
 
-        // Recent orders
+        // Update message badge in sidebar
+        const badge = document.getElementById('msgBadge');
+        if (badge) { badge.textContent = unreadMsgs; badge.style.display = unreadMsgs > 0 ? 'inline' : 'none'; }
+
+        // Recent orders (top 5)
         const recent = orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 5);
         const recentHtml = recent.length ? recent.map(o => `
             <div class="list-item">
                 <div class="list-item-info">
                     <strong>#${o.orderId || o.id.slice(0, 8)}</strong>
-                    <span>${o.customerName || 'Guest'}</span>
+                    <span>${o.customerName || 'Guest'} &bull; ${o.createdAt ? new Date(o.createdAt.seconds*1000).toLocaleDateString('en-IN') : ''}</span>
                 </div>
                 <div class="list-item-right">
                     <span class="amount">\u20b9${(o.total || 0).toLocaleString()}</span>
@@ -146,8 +166,7 @@ async function loadDashboard() {
         document.getElementById('recentOrdersList').innerHTML = recentHtml;
 
         // Low stock alerts
-        const invSnap = await db.collection('inventory').where('quantity', '<', 10).get();
-        const lowStock = invSnap.docs.map(d => d.data());
+        const lowStock = lowStockSnap.docs.map(d => d.data());
         const lowStockHtml = lowStock.length ? lowStock.map(s => `
             <div class="list-item">
                 <div class="list-item-info">
@@ -158,7 +177,7 @@ async function loadDashboard() {
                     <span class="stock-low">${s.quantity} left</span>
                 </div>
             </div>
-        `).join('') : '<p class="empty">All stock levels OK</p>';
+        `).join('') : '<p class="empty">All stock levels OK \u2705</p>';
         document.getElementById('lowStockList').innerHTML = lowStockHtml;
     } catch (err) {
         console.error('Dashboard error:', err);
@@ -774,7 +793,112 @@ async function saveOrderModifications(e) {
     }
 }
 
+// ===== Product Image Upload =====
+async function handleProductImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const preview = document.getElementById('pImagePreview');
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.classList.add('show'); };
+    reader.readAsDataURL(file);
+
+    // Upload to Firebase Storage
+    const btn = document.querySelector('#productForm button[type=submit]');
+    const origText = btn?.innerHTML || '';
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    try {
+        const path = 'products/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const ref = window.storage.ref(path);
+        await window.storage.uploadBytes(ref, file);
+        const url = await window.storage.getDownloadURL(ref);
+        document.getElementById('pImage').value = url;
+        showAdminToast('Image uploaded successfully');
+    } catch (err) {
+        showAdminToast('Image upload failed: ' + err.message, 'error');
+    } finally {
+        if (btn) btn.innerHTML = origText;
+    }
+}
+
+// ===== Messages =====
+let allMessages = [];
+
+async function loadMessages() {
+    const container = document.getElementById('messagesList');
+    if (!container) return;
+    container.innerHTML = '<p class="empty">Loading messages...</p>';
+    try {
+        const snap = await db.collection('messages').get();
+        allMessages = snap.docs.map(d => ({ docId: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        renderMessages();
+    } catch (err) {
+        container.innerHTML = '<p class="empty" style="color:red">Error loading messages: ' + err.message + '</p>';
+    }
+}
+
+function renderMessages() {
+    const container = document.getElementById('messagesList');
+    if (!container) return;
+    const search = (document.getElementById('messageSearch')?.value || '').toLowerCase();
+    let msgs = allMessages;
+    if (search) msgs = msgs.filter(m => (m.name||'').toLowerCase().includes(search) || (m.email||'').toLowerCase().includes(search) || (m.message||'').toLowerCase().includes(search));
+
+    if (!msgs.length) {
+        container.innerHTML = '<p class="empty"><i class="fas fa-envelope-open"></i>No messages found</p>';
+        return;
+    }
+    container.innerHTML = msgs.map(m => `
+        <div class="msg-card ${m.read ? '' : 'unread'}" onclick="toggleMessage('${m.docId}')">
+            <div class="msg-header">
+                <span class="msg-sender"><i class="fas fa-user-circle" style="color:#6366f1;margin-right:6px"></i>${m.name || 'Unknown'}</span>
+                <span class="msg-time">${m.createdAt ? new Date(m.createdAt.seconds*1000).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'N/A'}</span>
+            </div>
+            <div class="msg-subject">${m.subject || 'General Inquiry'}</div>
+            <div class="msg-preview">${m.message || ''}</div>
+            <div class="msg-meta">
+                <span class="msg-tag"><i class="fas fa-envelope"></i> ${m.email || ''}</span>
+                ${m.phone ? `<span class="msg-tag"><i class="fas fa-phone"></i> ${m.phone}</span>` : ''}
+                ${!m.read ? '<span class="msg-tag" style="background:#ede9fe;color:#6366f1;">New</span>' : ''}
+            </div>
+            <div class="msg-full" id="msg-full-${m.docId}">${(m.message||'').replace(/\n/g,'<br>')}</div>
+        </div>
+    `).join('');
+}
+
+async function toggleMessage(docId) {
+    const full = document.getElementById('msg-full-' + docId);
+    if (full) full.classList.toggle('open');
+    // Mark as read
+    const msg = allMessages.find(m => m.docId === docId);
+    if (msg && !msg.read) {
+        try {
+            await db.collection('messages').doc(docId).update({ read: true });
+            msg.read = true;
+            renderMessages();
+            loadDashboard(); // refresh badge
+        } catch (e) { /* ignore */ }
+    }
+}
+
+async function markAllRead() {
+    const unread = allMessages.filter(m => !m.read);
+    if (!unread.length) { showAdminToast('All messages already read'); return; }
+    try {
+        await Promise.all(unread.map(m => db.collection('messages').doc(m.docId).update({ read: true })));
+        unread.forEach(m => m.read = true);
+        renderMessages();
+        loadDashboard();
+        showAdminToast('All messages marked as read');
+    } catch (err) {
+        showAdminToast('Error: ' + err.message, 'error');
+    }
+}
+
 // ===== Export new functions =====
-window.handleResetPassword = handleResetPassword;
-window.editOrderModal = editOrderModal;
-window.saveOrderModifications = saveOrderModifications;
+window.handleProductImageUpload = handleProductImageUpload;
+window.loadMessages = loadMessages;
+window.renderMessages = renderMessages;
+window.toggleMessage = toggleMessage;
+window.markAllRead = markAllRead;

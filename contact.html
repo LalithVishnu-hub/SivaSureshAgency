@@ -116,7 +116,7 @@
                 <!-- Contact Form -->
                 <div class="contact-form-wrapper reveal">
                     <h3>Send Us a Message</h3>
-                    <form id="contactForm">
+                    <form id="contactForm" onsubmit="submitContactForm(event)">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Full Name *</label>
@@ -195,7 +195,37 @@
     <!-- Firebase initialization -->
     <script src="js/firebase-db-init.js?v=2"></script>
     <script defer src="js/firebase-integration.js"></script>
-</body>
+    <script>
+    async function submitContactForm(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = form.querySelector('button[type=submit]');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        try {
+            if (!window.db) throw new Error('Service unavailable. Please call us directly.');
+            await window.db.collection('messages').add({
+                name: form.name.value.trim(),
+                email: form.email.value.trim(),
+                phone: form.phone.value.trim(),
+                subject: form.subject.value || 'General Inquiry',
+                message: form.message.value.trim(),
+                createdAt: window.fsServerTimestamp ? window.fsServerTimestamp() : new Date(),
+                read: false,
+                source: 'contact-form'
+            });
+            form.reset();
+            btn.innerHTML = '<i class="fas fa-check"></i> Message Sent!';
+            btn.style.background = '#10b981';
+            setTimeout(() => { btn.disabled = false; btn.innerHTML = origHTML; btn.style.background = ''; }, 5000);
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+            alert('Failed to send: ' + (err.message || 'Please try again or call us directly.'));
+        }
+    }
+    </script>
 </html>
 
 
