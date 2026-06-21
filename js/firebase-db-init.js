@@ -1,11 +1,5 @@
 ﻿console.log('[firebase-db-init] Starting Firebase initialization...');
 
-// NOTE: Uses Firestore REST API directly to access the named database
-// "sivasureshagency". This bypasses the SDK compat+modular split that caused
-// auth tokens not to be shared (separate app instances), making all Firestore
-// requests unauthenticated and failing security rules.
-// Auth uses compat SDK; all Firestore ops use fetch() with explicit Bearer token.
-
 const firebaseConfig = {
     apiKey: "AIzaSyD3H7U7WwkRWx6hvsQxTGkmGO2Uq9xd4n4",
     authDomain: "siva-suresh-agency.firebaseapp.com",
@@ -36,25 +30,26 @@ window.storage = {
 };
 window.getCurrentUser = () => _auth.currentUser;
 
-// Firestore REST API wrapper for named database "sivasureshagency"
-const _FS  = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/sivasureshagency/documents`;
-const _OPS = { '==': 'EQUAL', '<': 'LESS_THAN', '<=': 'LESS_THAN_OR_EQUAL', '>': 'GREATER_THAN', '>=': 'GREATER_THAN_OR_EQUAL', '!=': 'NOT_EQUAL', 'array-contains': 'ARRAY_CONTAINS' };
-
-async function _headers() {
-    const h = { 'Content-Type': 'application/json' };
-    const user = _auth.currentUser;
-    if (user) { try { h['Authorization'] = 'Bearer ' + await user.getIdToken(); } catch(e) {} }
-    return h;
-}
+// Firestore REST API — named database "sivasureshagency"
+// Uses GET (not runQuery) + client-side filter/sort to avoid index requirements.
+// Explicit Bearer token ensures auth rules are satisfied.
+const _DB  = 'sivasureshagency';
+const _FS  = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${_DB}/documents`;
+const _KEY = firebaseConfig.apiKey;
 
 async function _fetch(url, opts = {}) {
-    const res = await fetch(url, { ...opts, headers: await _headers() });
+    const user = _auth.currentUser;
+    const h = { 'Content-Type': 'application/json' };
+    if (user) { try { h['Authorization'] = 'Bearer ' + await user.getIdToken(); } catch(e) {} }
+    const sep = url.includes('?') ? '&' : '?';
+    const res  = await fetch(`${url}${sep}key=${_KEY}`, { ...opts, headers: h });
     const text = await res.text();
     const json = text ? JSON.parse(text) : {};
-    if (!res.ok) throw new Error(json.error?.message || `Firestore error ${res.status}`);
+    if (!res.ok) throw new Error(json.error?.message || `Firestore ${res.status}`);
     return json;
 }
 
+// Firestore value → JS
 function _fromV(v) {
     if (!v) return null;
     if ('stringValue'    in v) return v.stringValue;
@@ -69,6 +64,7 @@ function _fromV(v) {
 }
 function _fromFields(f) { return Object.fromEntries(Object.entries(f).map(([k,v]) => [k, _fromV(v)])); }
 
+// JS → Firestore value
 function _toV(v) {
     if (v === null || v === undefined) return { nullValue: null };
     if (v instanceof Date)     return { timestampValue: v.toISOString() };
@@ -110,24 +106,50 @@ class ColRef {
     constructor(name) { this._name = name; this._wheres = []; this._order = null; }
     _clone() { const c = new ColRef(this._name); c._wheres = [...this._wheres]; c._order = this._order; return c; }
     where(f, op, v) { const c = this._clone(); c._wheres.push({ f, op, v }); return c; }
-    orderBy(f, dir) { const c = this._clone(); c._order = { f, dir: dir === 'desc' ? 'DESCENDING' : 'ASCENDING' }; return c; }
+    orderBy(f, dir) { const c = this._clone(); c._order = { f, dir: dir === 'desc' ? 'desc' : 'asc' }; return c; }
 
     async get() {
-        if (this._wheres.length || this._order) {
-            const q = { from: [{ collectionId: this._name }] };
-            if (this._wheres.length === 1) {
-                const w = this._wheres[0];
-                q.where = { fieldFilter: { field: { fieldPath: w.f }, op: _OPS[w.op] || 'EQUAL', value: _toV(w.v) } };
-            } else if (this._wheres.length > 1) {
-                q.where = { compositeFilter: { op: 'AND', filters: this._wheres.map(w => ({ fieldFilter: { field: { fieldPath: w.f }, op: _OPS[w.op] || 'EQUAL', value: _toV(w.v) } })) } };
-            }
-            if (this._order) q.orderBy = [{ field: { fieldPath: this._order.f }, direction: this._order.dir }];
-            const res = await _fetch(`${_FS}:runQuery`, { method: 'POST', body: JSON.stringify({ structuredQuery: q }) });
-            const docs = (Array.isArray(res) ? res : []).filter(r => r.document).map(r => _parseDoc(r.document)).filter(Boolean);
-            return { docs, size: docs.length, empty: !docs.length };
+        // Always use GET + paginate (avoids runQuery index issues)
+        let all = [], token = null;
+        do {
+            const url = `${_FS}/${this._name}?pageSize=300` + (token ? `&pageToken=${encodeURIComponent(token)}` : '');
+            const res = await _fetch(url);
+            all = all.concat((res.documents || []).map(_parseDoc).filter(Boolean));
+            token = res.nextPageToken || null;
+        } while (token);
+
+        // Client-side where filtering
+        let docs = all;
+        for (const { f, op, v } of this._wheres) {
+            docs = docs.filter(d => {
+                const val = d.data()[f];
+                switch (op) {
+                    case '==': return val === v;
+                    case '!=': return val !== v;
+                    case '<' : return val < v;
+                    case '<=': return val <= v;
+                    case '>' : return val > v;
+                    case '>=': return val >= v;
+                    case 'array-contains': return Array.isArray(val) && val.includes(v);
+                    default: return true;
+                }
+            });
         }
-        const res = await _fetch(`${_FS}/${this._name}`);
-        const docs = (res.documents || []).map(_parseDoc).filter(Boolean);
+
+        // Client-side sort
+        if (this._order) {
+            const { f, dir } = this._order;
+            docs.sort((a, b) => {
+                let av = a.data()[f], bv = b.data()[f];
+                if (av?.seconds !== undefined) av = av.seconds;
+                if (bv?.seconds !== undefined) bv = bv.seconds;
+                if (av < bv) return dir === 'desc' ? 1 : -1;
+                if (av > bv) return dir === 'desc' ? -1 : 1;
+                return 0;
+            });
+        }
+
+        console.log(`[FS] ${this._name}: ${docs.length} docs`);
         return { docs, size: docs.length, empty: !docs.length };
     }
 
@@ -136,7 +158,7 @@ class ColRef {
     async add(obj) {
         const id = _autoId();
         const { fields, transforms } = _buildWrite(obj);
-        const docPath = `projects/${firebaseConfig.projectId}/databases/sivasureshagency/documents/${this._name}/${id}`;
+        const docPath = `projects/${firebaseConfig.projectId}/databases/${_DB}/documents/${this._name}/${id}`;
         const write = { update: { name: docPath, fields } };
         if (transforms.length) write.updateTransforms = transforms;
         await _fetch(`${_FS}:commit`, { method: 'POST', body: JSON.stringify({ writes: [write] }) });
@@ -146,7 +168,7 @@ class ColRef {
 
 class DocRef {
     constructor(col, id) { this._col = col; this._id = id; }
-    get _docPath() { return `projects/${firebaseConfig.projectId}/databases/sivasureshagency/documents/${this._col}/${this._id}`; }
+    get _docPath() { return `projects/${firebaseConfig.projectId}/databases/${_DB}/documents/${this._col}/${this._id}`; }
 
     async get() {
         try {
