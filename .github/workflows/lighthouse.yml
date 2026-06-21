@@ -1,0 +1,32 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install lighthouse
+        run: npm install -g lighthouse@10 || npm install -g lighthouse
+
+      - name: Run Lighthouse (mobile)
+        run: |
+          URL="https://lalithvishnu-hub.github.io/SivaSureshAgency/"
+          lighthouse "$URL" --output html --output-path=./lighthouse-report.html --chrome-flags="--headless --no-sandbox" --emulated-form-factor=mobile --quiet || true
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lighthouse-report.html
