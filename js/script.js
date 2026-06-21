@@ -889,7 +889,6 @@ function setupRevealObserver() {
     }, opts);
     document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-stagger').forEach(el => observer.observe(el));
 }
-}
 
 // ===== Wishlist Page =====
 function initWishlistPage() {
