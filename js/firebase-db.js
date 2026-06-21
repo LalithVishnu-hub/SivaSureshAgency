@@ -95,4 +95,6 @@ window.fsIncrement       = increment;
 // Also expose on fireDb for firebase-integration.js
 window.fireDb = window.db;
 
-console.log('[firebase-db] Initialised → database: sivasureshagency');
+// Signal that module is ready
+window._firebaseReady = true;
+console.log('[firebase-db] ✓ Initialised → database: sivasureshagency');

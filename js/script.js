@@ -179,10 +179,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page === 'contact') initContactPage();
     // Auto-sync any localStorage orders that failed to save during a previous session
     if (currentUser) {
+        console.log('[app] User logged in as:', currentUser.email);
         setTimeout(() => {
-            if (typeof syncPendingOrders === 'function')
+            if (typeof syncPendingOrders === 'function') {
+                console.log('[app] Starting auto-sync...');
                 syncPendingOrders(currentUser.email, currentUser.name, currentUser.phone);
-        }, 2000); // slight delay so firebase-db.js module is fully ready
+            } else {
+                console.warn('[app] syncPendingOrders not available');
+            }
+        }, 500); // reduced from 2000ms to let firebase-db.js module load
     }
 });
 
