@@ -303,9 +303,10 @@ img { max-width: 100%; height: auto; }
 
 /* ===== Footer ===== */
 .footer { background: linear-gradient(180deg, #0f1629 0%, #0a0e1a 100%); color: #fff; padding: 70px 0 0; position: relative; overflow: hidden; }
-/* Out-of-stock product card */
+/* Out-of-stock / Low-stock product card */
 .out-of-stock-card { opacity: 0.75; }
 .out-of-stock-card .shop-card-image::after { content: "Out of Stock"; position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.9rem; letter-spacing: 1px; pointer-events: none; }
+.low-stock-card .shop-card-image::after { content: "Low Stock"; position: absolute; bottom: 8px; left: 8px; background: rgba(245,158,11,0.9); color: #fff; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; pointer-events: none; }
 .footer::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 80%; height: 1px; background: linear-gradient(90deg, transparent, rgba(108,99,255,0.3), transparent); }
 .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.3fr; gap: 40px; padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .footer-about p { color: rgba(255,255,255,0.7); font-size: 0.88rem; margin: 15px 0; line-height: 1.7; }

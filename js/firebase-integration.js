@@ -45,16 +45,6 @@ async function saveOrderToFirebase(order, shippingDetails) {
         // Mark as synced in localStorage so syncPendingOrders skips it
         _markSynced(order.id, shippingDetails.email);
 
-        // Deduct inventory for each ordered item
-        await deductInventoryForOrder(order.items);
-
-        // Mark the order as inventory-deducted so the admin reconcile tool skips it
-        // (find by orderId since we don't have the docId from add())
-        try {
-            const snap = await fireDb.collection('orders').where('orderId', '==', order.id).get();
-            if (!snap.empty) await fireDb.collection('orders').doc(snap.docs[0].id).update({ inventoryDeducted: true });
-        } catch(e) { /* non-critical */ }
-
         // Upsert customer record using email as doc ID (no read needed)
         const customerDocId = shippingDetails.email.replace(/[^a-zA-Z0-9]/g, '_');
         const customerDocRef = fireDb.collection('customers').doc(customerDocId);
@@ -72,37 +62,6 @@ async function saveOrderToFirebase(order, shippingDetails) {
     } catch (err) {
         console.error('Firebase order save error:', err);
         // Will be retried automatically by syncPendingOrders on next page load
-    }
-}
-
-// ===== Deduct inventory quantities when an order is placed =====
-async function deductInventoryForOrder(items) {
-    if (!window.fireDb || !items || !items.length) return;
-    try {
-        for (const item of items) {
-            if (!item.name || !item.selectedSize) continue;
-            const qty = item.qty || 1;
-            // Find inventory doc(s) matching product name + size
-            const snap = await fireDb.collection('inventory')
-                .where('productName', '==', item.name)
-                .where('size', '==', item.selectedSize)
-                .get();
-            if (snap.empty) { console.warn('[inventory] No doc found for:', item.name, item.selectedSize); continue; }
-            // If multiple color variants exist, match by selectedColor; else take first
-            let doc = snap.docs[0];
-            if (item.selectedColor && snap.docs.length > 1) {
-                const match = snap.docs.find(d => (d.data().color || '').toLowerCase() === item.selectedColor.toLowerCase());
-                if (match) doc = match;
-            }
-            const current = doc.data().quantity || 0;
-            await fireDb.collection('inventory').doc(doc.id).update({
-                quantity: Math.max(0, current - qty),
-                updatedAt: fsServerTimestamp()
-            });
-            console.log(`[inventory] ${item.name} (${item.selectedSize}) ${current} → ${Math.max(0, current - qty)}`);
-        }
-    } catch (err) {
-        console.error('[inventory deduct]', err);
     }
 }
 
@@ -149,12 +108,7 @@ async function syncPendingOrders(userEmail, userName, userPhone) {
                 createdAt: fsServerTimestamp(),
                 updatedAt: fsServerTimestamp()
             });
-            // Deduct inventory for synced offline order
-            await deductInventoryForOrder(order.items || []);
-            try {
-                const snap = await fireDb.collection('orders').where('orderId', '==', order.id).get();
-                if (!snap.empty) await fireDb.collection('orders').doc(snap.docs[0].id).update({ inventoryDeducted: true });
-            } catch(e) { /* non-critical */ }
+            // Deduct inventory for synced offline order — removed (admin manages stock status manually)
             console.log(`[sync] ✓ Order ${order.id} synced`);
             order._synced = true; changed = true; synced++;
         } catch (e) {
@@ -206,45 +160,54 @@ window.saveCustomerToFirebase = saveCustomerToFirebase;
 window.syncPendingOrders      = syncPendingOrders;
 
 // ===== Out-of-Stock awareness for the customer-facing frontend =====
-// Fetches inventory items with quantity == 0 and marks productsData accordingly.
-// Called once Firebase is ready; re-renders product grid with Out-of-Stock badges.
+// Fetches all inventory docs, builds out-of-stock/low-stock maps by status field.
+// Falls back to quantity field for older docs that haven't been migrated.
 async function loadOutOfStockData() {
     try {
         if (!window.fireDb) return;
-        const snap = await window.fireDb.collection('inventory').where('quantity', '==', 0).get();
-        // Build map: productName → Set of out-of-stock sizes
-        const map = {};
+        const snap = await window.fireDb.collection('inventory').get();
+        const outMap = {}, lowMap = {};
+
         snap.docs.forEach(d => {
-            const { productName, size } = d.data();
+            const { productName, size, status, quantity } = d.data();
             if (!productName || !size) return;
-            if (!map[productName]) map[productName] = new Set();
-            map[productName].add(size);
+            // Effective status: prefer explicit status field, fall back to quantity
+            let st = status;
+            if (!st) st = (quantity === 0) ? 'out_of_stock' : (quantity > 0 && quantity <= 10) ? 'low_stock' : 'in_stock';
+            if (st === 'out_of_stock') {
+                if (!outMap[productName]) outMap[productName] = new Set();
+                outMap[productName].add(size);
+            } else if (st === 'low_stock') {
+                if (!lowMap[productName]) lowMap[productName] = new Set();
+                lowMap[productName].add(size);
+            }
         });
-        window.outOfStockMap = map;
-        // Annotate productsData
+
+        window.outOfStockMap = outMap;
+        window.lowStockMap   = lowMap;
+
         if (window.productsData) {
             window.productsData.forEach(p => {
-                const outSizes = map[p.name];
+                const outSizes = outMap[p.name];
+                const lowSizes = lowMap[p.name];
                 p.outOfStockSizes = outSizes ? [...outSizes] : [];
+                p.lowStockSizes   = lowSizes ? [...lowSizes] : [];
                 p.outOfStock = outSizes ? p.sizes.every(s => outSizes.has(s)) : false;
+                p.lowStock   = !p.outOfStock && (lowSizes ? p.sizes.some(s => lowSizes.has(s)) : false);
             });
         }
-        // Re-render product grid if visible
         if (typeof window.renderProducts === 'function') {
             window.renderProducts(window.currentFilter || 'all', window.displayedProducts || 12, window._currentGender, window._currentSleeve);
         }
-        console.log('[stock] Out-of-stock map loaded:', Object.keys(map).length, 'products with 0 stock');
+        console.log('[stock] Loaded:', Object.keys(outMap).length, 'out-of-stock,', Object.keys(lowMap).length, 'low-stock products');
     } catch (e) {
-        console.warn('[stock] Could not load out-of-stock data:', e.message);
+        console.warn('[stock] Could not load stock data:', e.message);
     }
 }
-// Auto-load when firebase is ready (DOM content loaded + Firebase init complete)
+// Auto-load when Firebase is ready
 document.addEventListener('DOMContentLoaded', () => {
     const wait = setInterval(() => {
-        if (window._firebaseReady && window.fireDb) {
-            clearInterval(wait);
-            loadOutOfStockData();
-        }
+        if (window._firebaseReady && window.fireDb) { clearInterval(wait); loadOutOfStockData(); }
     }, 400);
 });
 window.loadOutOfStockData = loadOutOfStockData;

@@ -200,7 +200,6 @@
                     <div class="toolbar-right">
                         <input type="text" id="inventorySearch" placeholder="Search by product, size, color..." class="search-input" oninput="renderInventory()">
                         <button class="btn-secondary" onclick="deduplicateInventory()" title="Remove duplicate inventory entries caused by multiple syncs"><i class="fas fa-compress-alt"></i> Fix Duplicates</button>
-                        <button class="btn-secondary" onclick="reconcileInventoryFromOrders()" title="Deduct stock for all past orders that weren't processed"><i class="fas fa-calculator"></i> Reconcile Stock</button>
                         <button class="btn-primary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync</button>
                     </div>
                 </div>
@@ -212,10 +211,7 @@
                                 <th>Product</th>
                                 <th>Size</th>
                                 <th>Color</th>
-                                <th>Qty</th>
-                                <th>Status</th>
-                                <th>Adjust</th>
-                                <th>Edit</th>
+                                <th>Stock Status</th>
                             </tr>
                         </thead>
                         <tbody id="inventoryTableBody"></tbody>
@@ -327,19 +323,26 @@
         </div>
     </div>
 
-    <!-- Stock Update Modal -->
+    <!-- Stock Status Modal -->
     <div class="modal-overlay" id="stockModal">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h3><i class="fas fa-boxes"></i> Update Stock</h3>
+                <h3><i class="fas fa-tag"></i> Update Stock Status</h3>
                 <button onclick="closeModal('stockModal')"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <form id="stockForm" onsubmit="saveStock(event)">
                     <input type="hidden" id="stockDocId">
-                    <p id="stockProductName" style="font-weight:600;margin-bottom:12px;"></p>
-                    <div class="form-group"><label>Quantity</label><input type="number" id="stockQty" min="0" required></div>
-                    <button type="submit" class="btn-primary btn-full"><i class="fas fa-save"></i> Update</button>
+                    <p id="stockProductName" style="font-weight:600;margin-bottom:16px;color:var(--text);"></p>
+                    <div class="form-group">
+                        <label>Stock Status</label>
+                        <select id="stockStatus" style="background:var(--surface-2);">
+                            <option value="in_stock">✓ In Stock</option>
+                            <option value="low_stock">⚠ Low Stock</option>
+                            <option value="out_of_stock">✗ Out of Stock</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary btn-full"><i class="fas fa-save"></i> Save Status</button>
                 </form>
             </div>
         </div>

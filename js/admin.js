@@ -131,11 +131,11 @@ function toggleSidebar() {
 let _dashboardCache = null;
 async function loadDashboard() {
     try {
-        // Parallel fetch: orders + customers + low-stock inventory
-        const [ordersSnap, customersSnap, lowStockSnap, messagesSnap] = await Promise.all([
+        // Parallel fetch: orders + customers + inventory (for status-based alerts) + messages
+        const [ordersSnap, customersSnap, invSnap, messagesSnap] = await Promise.all([
             db.collection('orders').get(),
             db.collection('customers').get(),
-            db.collection('inventory').where('quantity', '<', 10).get(),
+            db.collection('inventory').get(),
             db.collection('messages').get()
         ]);
 
@@ -171,20 +171,26 @@ async function loadDashboard() {
         `).join('') : '<p class="empty">No orders yet</p>';
         document.getElementById('recentOrdersList').innerHTML = recentHtml;
 
-        // Low stock alerts
-        const lowStock = lowStockSnap.docs.map(d => d.data());
-        const lowStockHtml = lowStock.length ? lowStock.map(s => `
+        // Stock alerts based on status field
+        const invDocs = invSnap.docs.map(d => d.data());
+        const alerts = invDocs.filter(i => {
+            const st = i.status || (i.quantity === 0 ? 'out_of_stock' : i.quantity <= 10 ? 'low_stock' : 'in_stock');
+            return st === 'low_stock' || st === 'out_of_stock';
+        });
+        const alertHtml = alerts.length ? alerts.map(s => {
+            const st = s.status || (s.quantity === 0 ? 'out_of_stock' : 'low_stock');
+            return `
             <div class="list-item">
                 <div class="list-item-info">
                     <strong>${s.productName}</strong>
-                    <span>Size: ${s.size} | Color: ${s.color || 'N/A'}</span>
+                    <span>Size: ${s.size}${s.color ? ' | ' + s.color : ''}</span>
                 </div>
                 <div class="list-item-right">
-                    <span class="stock-low">${s.quantity} left</span>
+                    <span class="status-badge ${st === 'out_of_stock' ? 'cancelled' : 'processing'}">${st === 'out_of_stock' ? 'Out of Stock' : 'Low Stock'}</span>
                 </div>
-            </div>
-        `).join('') : '<p class="empty">All stock levels OK \u2705</p>';
-        document.getElementById('lowStockList').innerHTML = lowStockHtml;
+            </div>`;
+        }).join('') : '<p class="empty">All stock levels OK \u2705</p>';
+        document.getElementById('lowStockList').innerHTML = alertHtml;
     } catch (err) {
         console.error('Dashboard error:', err);
     }
@@ -410,27 +416,27 @@ function renderProducts() {
     const tbody = document.getElementById('productsTableBody');
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No products. Click "Add Product" or "Sync Products" in Inventory.</td></tr>'; return; }
 
-    // Build stock totals from allInventory
+    // Build stock status from allInventory (by status field, fall back to quantity)
     const stockByProduct = {};
     for (const inv of allInventory) {
-        if (!stockByProduct[inv.productName]) stockByProduct[inv.productName] = 0;
-        stockByProduct[inv.productName] += (inv.quantity || 0);
+        if (!stockByProduct[inv.productName]) stockByProduct[inv.productName] = 'in_stock';
+        const st = _invStatus(inv);
+        // Demote: out_of_stock < low_stock < in_stock (use worst status across all sizes)
+        if (st === 'out_of_stock') stockByProduct[inv.productName] = 'out_of_stock';
+        else if (st === 'low_stock' && stockByProduct[inv.productName] !== 'out_of_stock') stockByProduct[inv.productName] = 'low_stock';
     }
 
     tbody.innerHTML = filtered.map(p => {
-        const liveStock = stockByProduct[p.name] ?? (p.totalStock !== undefined ? p.totalStock : '-');
-        const stockNum = typeof liveStock === 'number' ? liveStock : 0;
-        const stockBadge = stockNum === 0 ? 'cancelled' : stockNum <= 20 ? 'processing' : 'approved';
-        const stockLabel = stockNum === 0 ? 'Out of Stock' : stockNum <= 20 ? `Low (${liveStock})` : `In Stock (${liveStock})`;
-        return `
-        <tr>
+        const worstStatus = stockByProduct[p.name] || 'in_stock';
+        const stockBadge = worstStatus === 'out_of_stock' ? 'cancelled' : worstStatus === 'low_stock' ? 'processing' : 'approved';
+        const stockLabel = worstStatus === 'out_of_stock' ? 'Out of Stock' : worstStatus === 'low_stock' ? 'Low Stock' : 'In Stock';
+        return `        <tr>
             <td><img src="${p.image || ''}" alt="" class="product-thumb"></td>
             <td class="td-name"><strong>${p.name}</strong><small>${(p.category || '').replace(/-/g, ' ')}</small></td>
             <td>${p.gender ? `<span class="size-chip" style="background:#e0e7ff;color:#3730a3">${p.gender}</span>` : '-'}</td>
             <td>\u20b9${p.price}</td>
             <td>${p.badge ? `<span class="size-chip" style="background:#fef3c7;color:#92400e">${p.badge}</span>` : '-'}</td>
-            <td><span class="status-badge ${stockBadge}">${stockLabel}</span></td>
-            <td>
+            <td><span class="status-badge ${stockBadge}">${stockLabel}</span></td>            <td>
                 <button class="btn-icon" onclick="editProduct('${p.docId}')" title="Edit"><i class="fas fa-edit"></i></button>
                 <button class="btn-icon danger" onclick="deleteProduct('${p.docId}')" title="Delete"><i class="fas fa-trash"></i></button>
             </td>
@@ -639,6 +645,14 @@ async function loadInventory() {
 
 let _invFilter = 'all';
 
+// Helper: derive effective status (supports both new status field + old quantity field)
+function _invStatus(i) {
+    if (i.status) return i.status;
+    if (i.quantity === 0) return 'out_of_stock';
+    if (i.quantity > 0 && i.quantity <= 10) return 'low_stock';
+    return 'in_stock';
+}
+
 function setInvFilter(filter, btn) {
     _invFilter = filter;
     document.querySelectorAll('[data-inv-filter]').forEach(b => b.classList.remove('active'));
@@ -649,15 +663,15 @@ function setInvFilter(filter, btn) {
 function renderInventory() {
     const tbody = document.getElementById('inventoryTableBody');
     const summary = document.getElementById('invSummary');
-    if (!allInventory.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No inventory data. Click "Sync" to populate.</td></tr>'; return; }
+    if (!allInventory.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No inventory data. Click "Sync" to populate.</td></tr>'; return; }
 
-    // Summary chips
-    const total = allInventory.length;
-    const lowCount = allInventory.filter(i => i.quantity > 0 && i.quantity <= 10).length;
-    const outCount = allInventory.filter(i => i.quantity === 0).length;
+    const okCount  = allInventory.filter(i => _invStatus(i) === 'in_stock').length;
+    const lowCount = allInventory.filter(i => _invStatus(i) === 'low_stock').length;
+    const outCount = allInventory.filter(i => _invStatus(i) === 'out_of_stock').length;
+
     if (summary) summary.innerHTML = `
-        <div class="inv-chip total"><i class="fas fa-boxes"></i> ${total} SKUs</div>
-        <div class="inv-chip ok"><i class="fas fa-check-circle"></i> ${total - lowCount - outCount} OK</div>
+        <div class="inv-chip total"><i class="fas fa-boxes"></i> ${allInventory.length} SKUs</div>
+        <div class="inv-chip ok"><i class="fas fa-check-circle"></i> ${okCount} In Stock</div>
         <div class="inv-chip low"><i class="fas fa-exclamation-triangle"></i> ${lowCount} Low Stock</div>
         <div class="inv-chip out"><i class="fas fa-times-circle"></i> ${outCount} Out of Stock</div>
     `;
@@ -669,45 +683,65 @@ function renderInventory() {
         (i.size || '').toLowerCase().includes(search) ||
         (i.color || '').toLowerCase().includes(search)
     );
-    if (_invFilter === 'low') items = items.filter(i => i.quantity > 0 && i.quantity <= 10);
-    if (_invFilter === 'out') items = items.filter(i => i.quantity === 0);
+    if (_invFilter === 'low') items = items.filter(i => _invStatus(i) === 'low_stock');
+    if (_invFilter === 'out') items = items.filter(i => _invStatus(i) === 'out_of_stock');
 
-    if (!items.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching items.</td></tr>'; return; }
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No matching items.</td></tr>'; return; }
 
     tbody.innerHTML = items.map(i => {
-        const lvl = i.quantity === 0 ? 'out' : i.quantity <= 10 ? 'low' : 'ok';
-        const badge = lvl === 'out' ? 'cancelled' : lvl === 'low' ? 'processing' : 'approved';
-        const label = lvl === 'out' ? 'Out of Stock' : lvl === 'low' ? 'Low' : 'In Stock';
+        const st = _invStatus(i);
+        const rowClass = st === 'out_of_stock' ? 'inv-row-out' : st === 'low_stock' ? 'inv-row-low' : 'inv-row-ok';
         return `
-        <tr class="inv-row-${lvl}">
+        <tr class="${rowClass}">
             <td class="td-name"><strong>${i.productName}</strong></td>
             <td><span class="size-chip">${i.size}</span></td>
-            <td>${i.color || '<span style="color:#94a3b8">—</span>'}</td>
-            <td><strong class="qty-num ${lvl}">${i.quantity}</strong></td>
-            <td><span class="status-badge ${badge}">${label}</span></td>
+            <td>${i.color || '<span style="color:#94a3b8">\u2014</span>'}</td>
             <td>
-                <div class="qty-ctrl">
-                    <button class="qty-btn minus" onclick="quickAdjust('${i.docId}', ${i.quantity}, -1)" title="Remove 1"><i class="fas fa-minus"></i></button>
-                    <button class="qty-btn plus" onclick="quickAdjust('${i.docId}', ${i.quantity}, 1)" title="Add 1"><i class="fas fa-plus"></i></button>
-                </div>
+                <select class="inv-status-select inv-status-${st}" onchange="updateInventoryStatus('${i.docId}', this.value)">
+                    <option value="in_stock"  ${st === 'in_stock'      ? 'selected' : ''}>\u2713 In Stock</option>
+                    <option value="low_stock" ${st === 'low_stock'     ? 'selected' : ''}>\u26a0 Low Stock</option>
+                    <option value="out_of_stock" ${st === 'out_of_stock' ? 'selected' : ''}>\u2717 Out of Stock</option>
+                </select>
             </td>
-            <td><button class="btn-icon" onclick="openStockModal('${i.docId}', '${i.productName.replace(/'/g,"\\'")} (${i.size}/${i.color || '-'})', ${i.quantity})" title="Set exact qty"><i class="fas fa-edit"></i></button></td>
         </tr>`;
     }).join('');
 }
 
-async function quickAdjust(docId, current, delta) {
-    const newQty = Math.max(0, (current || 0) + delta);
+async function updateInventoryStatus(docId, status) {
     try {
-        await db.collection('inventory').doc(docId).update({ quantity: newQty, updatedAt: fsServerTimestamp() });
+        await db.collection('inventory').doc(docId).update({ status, updatedAt: fsServerTimestamp() });
         const item = allInventory.find(i => i.docId === docId);
-        if (item) { item.quantity = newQty; renderInventory(); }
+        if (item) { item.status = status; renderInventory(); }
+        const labels = { in_stock: 'In Stock', low_stock: 'Low Stock', out_of_stock: 'Out of Stock' };
+        showAdminToast(`\u2713 Marked as ${labels[status] || status}`);
     } catch (err) {
         showAdminToast('Update failed: ' + err.message, 'error');
     }
 }
 
-// ===== Export Orders as CSV =====
+function openStockModal(docId, name) {
+    document.getElementById('stockDocId').value = docId;
+    document.getElementById('stockProductName').textContent = name;
+    const item = allInventory.find(i => i.docId === docId);
+    document.getElementById('stockStatus').value = item ? _invStatus(item) : 'in_stock';
+    openModal('stockModal');
+}
+
+async function saveStock(e) {
+    e.preventDefault();
+    const docId = document.getElementById('stockDocId').value;
+    const status = document.getElementById('stockStatus').value;
+    try {
+        await db.collection('inventory').doc(docId).update({ status, updatedAt: fsServerTimestamp() });
+        const item = allInventory.find(i => i.docId === docId);
+        if (item) { item.status = status; }
+        showAdminToast('Stock status updated');
+        closeModal('stockModal');
+        renderInventory();
+    } catch (err) {
+        showAdminToast('Error: ' + err.message, 'error');
+    }
+}
 function exportOrdersCSV() {
     if (!allOrders.length) { showAdminToast('No orders to export', 'info'); return; }
     const rows = [['Order ID','Customer','Email','Phone','Items','Total','Status','Date','Tracking','Address','City','Pincode']];
@@ -1104,8 +1138,11 @@ window.loadMessages = loadMessages;
 window.renderMessages = renderMessages;
 window.toggleMessage = toggleMessage;
 window.markAllRead = markAllRead;
-window.quickAdjust = quickAdjust;
+window.quickAdjust = undefined; // removed — use status dropdown
 window.setInvFilter = setInvFilter;
-window.reconcileInventoryFromOrders = reconcileInventoryFromOrders;
+window.reconcileInventoryFromOrders = undefined; // removed — no longer qty-based
 window.deduplicateInventory = deduplicateInventory;
 window.exportOrdersCSV = exportOrdersCSV;
+window.updateInventoryStatus = updateInventoryStatus;
+window.openStockModal = openStockModal;
+window.saveStock = saveStock;
