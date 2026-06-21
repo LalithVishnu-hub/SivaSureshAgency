@@ -31,8 +31,9 @@ window.storage = {
 window.getCurrentUser = () => _auth.currentUser;
 
 // Firestore REST API — named database "sivasureshagency"
-// Uses GET (not runQuery) + client-side filter/sort to avoid index requirements.
-// Explicit Bearer token ensures auth rules are satisfied.
+// Uses runQuery (POST) for collection reads — the list (GET) API returns 403
+// on named databases even with 'allow read: if true' rules.
+// Individual document GET and all write operations work normally.
 const _DB  = 'sivasureshagency';
 const _FS  = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${_DB}/documents`;
 const _KEY = firebaseConfig.apiKey;
@@ -109,14 +110,25 @@ class ColRef {
     orderBy(f, dir) { const c = this._clone(); c._order = { f, dir: dir === 'desc' ? 'desc' : 'asc' }; return c; }
 
     async get() {
-        // Always use GET + paginate (avoids runQuery index issues)
-        let all = [], token = null;
+        // Use runQuery (POST) — the list (GET) API returns 403 on named databases.
+        // Fetches up to 1000 docs per batch; cursor-paginates if collection is larger.
+        let all = [], lastDocName = null, batchCount = 0;
         do {
-            const url = `${_FS}/${this._name}?pageSize=300` + (token ? `&pageToken=${encodeURIComponent(token)}` : '');
-            const res = await _fetch(url);
-            all = all.concat((res.documents || []).map(_parseDoc).filter(Boolean));
-            token = res.nextPageToken || null;
-        } while (token);
+            const q = { from: [{ collectionId: this._name }], limit: 1000 };
+            if (lastDocName) {
+                q.orderBy = [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }];
+                q.startAt = { values: [{ referenceValue: lastDocName }], before: false };
+            }
+            const res = await _fetch(`${_FS}:runQuery`, {
+                method: 'POST',
+                body: JSON.stringify({ structuredQuery: q })
+            });
+            const rawArr = Array.isArray(res) ? res : [res];
+            const rawDocs = rawArr.filter(r => r.document).map(r => r.document);
+            batchCount = rawDocs.length;
+            all = all.concat(rawDocs.map(_parseDoc).filter(Boolean));
+            lastDocName = batchCount === 1000 ? (rawDocs[rawDocs.length - 1]?.name || null) : null;
+        } while (lastDocName);
 
         // Client-side where filtering
         let docs = all;
