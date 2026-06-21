@@ -93,6 +93,12 @@ function handleAdminLogout() {
 }
 
 // ===== Navigation =====
+function navigateTo(page) {
+    const item = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (item) item.click();
+}
+window.navigateTo = navigateTo;
+
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
@@ -245,12 +251,27 @@ async function viewOrder(docId) {
     const o = allOrders.find(x => x.docId === docId);
     if (!o) return;
     const modal = document.getElementById('orderModalBody');
+    const statuses = ['Processing','Approved','Shipped','Delivered'];
+    const curIdx = statuses.indexOf(o.status);
+    const timelineHTML = `
+        <div class="order-timeline">
+            ${statuses.map((s, i) => `
+                <div class="tl-step">
+                    <div class="tl-dot ${i < curIdx ? 'done' : i === curIdx && o.status !== 'Cancelled' ? 'active' : ''}">
+                        <i class="fas fa-${i===0?'clock':i===1?'check':i===2?'truck':'home'}"></i>
+                    </div>
+                    <span class="tl-label">${s}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
     modal.innerHTML = `
         <div class="order-detail">
             <div class="od-header">
                 <div><h4>Order #${o.orderId || docId.slice(0, 8)}</h4><span class="status-badge ${(o.status || '').toLowerCase()}">${o.status}</span></div>
                 <span>${o.createdAt ? new Date(o.createdAt.seconds * 1000).toLocaleString('en-IN') : ''}</span>
             </div>
+            ${o.status !== 'Cancelled' ? timelineHTML : ''}
             <div class="od-section">
                 <h5><i class="fas fa-user"></i> Customer</h5>
                 <p>${o.customerName || 'N/A'}</p>
@@ -267,11 +288,11 @@ async function viewOrder(docId) {
                     <tr><th>Product</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th></tr>
                     ${(o.items || []).map(i => `<tr><td>${i.name}</td><td>${i.selectedSize || '-'}</td><td>${i.selectedColor || '-'}</td><td>${i.qty}</td><td>\u20b9${i.price * i.qty}</td></tr>`).join('')}
                 </table>
+                <p style="text-align:right;font-weight:700;margin-top:10px;font-size:1rem;color:var(--primary)">Total: \u20b9${(o.total || 0).toLocaleString()}</p>
             </div>
             <div class="od-section">
-                <h5><i class="fas fa-rupee-sign"></i> Payment</h5>
+                <h5><i class="fas fa-credit-card"></i> Payment</h5>
                 <p>Method: <strong>${o.payment || 'COD'}</strong></p>
-                <p>Total: <strong>\u20b9${(o.total || 0).toLocaleString()}</strong></p>
             </div>
             ${o.trackingId ? `<div class="od-section"><h5><i class="fas fa-truck"></i> Tracking</h5><p>${o.trackingId}</p></div>` : ''}
             <div class="od-actions">
@@ -598,20 +619,74 @@ async function loadInventory() {
     }
 }
 
+let _invFilter = 'all';
+
+function setInvFilter(filter, btn) {
+    _invFilter = filter;
+    document.querySelectorAll('[data-inv-filter]').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderInventory();
+}
+
 function renderInventory() {
     const tbody = document.getElementById('inventoryTableBody');
-    if (!allInventory.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No inventory data. Click "Sync Products" to populate.</td></tr>'; return; }
+    const summary = document.getElementById('invSummary');
+    if (!allInventory.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No inventory data. Click "Sync" to populate.</td></tr>'; return; }
 
-    tbody.innerHTML = allInventory.map(i => `
-        <tr>
-            <td>${i.productName}</td>
-            <td>${i.size}</td>
-            <td>${i.color || '-'}</td>
-            <td><strong>${i.quantity}</strong></td>
-            <td><span class="status-badge ${i.quantity > 10 ? 'approved' : i.quantity > 0 ? 'shipped' : 'cancelled'}">${i.quantity > 10 ? 'OK' : i.quantity > 0 ? 'Low' : 'Out'}</span></td>
-            <td><button class="btn-icon" onclick="openStockModal('${i.docId}', '${i.productName} (${i.size}/${i.color || "-"})', ${i.quantity})" title="Update"><i class="fas fa-edit"></i></button></td>
-        </tr>
-    `).join('');
+    // Summary chips
+    const total = allInventory.length;
+    const lowCount = allInventory.filter(i => i.quantity > 0 && i.quantity <= 10).length;
+    const outCount = allInventory.filter(i => i.quantity === 0).length;
+    if (summary) summary.innerHTML = `
+        <div class="inv-chip total"><i class="fas fa-boxes"></i> ${total} SKUs</div>
+        <div class="inv-chip ok"><i class="fas fa-check-circle"></i> ${total - lowCount - outCount} OK</div>
+        <div class="inv-chip low"><i class="fas fa-exclamation-triangle"></i> ${lowCount} Low Stock</div>
+        <div class="inv-chip out"><i class="fas fa-times-circle"></i> ${outCount} Out of Stock</div>
+    `;
+
+    const search = (document.getElementById('inventorySearch')?.value || '').toLowerCase();
+    let items = allInventory;
+    if (search) items = items.filter(i =>
+        (i.productName || '').toLowerCase().includes(search) ||
+        (i.size || '').toLowerCase().includes(search) ||
+        (i.color || '').toLowerCase().includes(search)
+    );
+    if (_invFilter === 'low') items = items.filter(i => i.quantity > 0 && i.quantity <= 10);
+    if (_invFilter === 'out') items = items.filter(i => i.quantity === 0);
+
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching items.</td></tr>'; return; }
+
+    tbody.innerHTML = items.map(i => {
+        const lvl = i.quantity === 0 ? 'out' : i.quantity <= 10 ? 'low' : 'ok';
+        const badge = lvl === 'out' ? 'cancelled' : lvl === 'low' ? 'processing' : 'approved';
+        const label = lvl === 'out' ? 'Out of Stock' : lvl === 'low' ? 'Low' : 'In Stock';
+        return `
+        <tr class="inv-row-${lvl}">
+            <td class="td-name"><strong>${i.productName}</strong></td>
+            <td><span class="size-chip">${i.size}</span></td>
+            <td>${i.color || '<span style="color:#94a3b8">—</span>'}</td>
+            <td><strong class="qty-num ${lvl}">${i.quantity}</strong></td>
+            <td><span class="status-badge ${badge}">${label}</span></td>
+            <td>
+                <div class="qty-ctrl">
+                    <button class="qty-btn minus" onclick="quickAdjust('${i.docId}', ${i.quantity}, -1)" title="Remove 1"><i class="fas fa-minus"></i></button>
+                    <button class="qty-btn plus" onclick="quickAdjust('${i.docId}', ${i.quantity}, 1)" title="Add 1"><i class="fas fa-plus"></i></button>
+                </div>
+            </td>
+            <td><button class="btn-icon" onclick="openStockModal('${i.docId}', '${i.productName.replace(/'/g,"\\'")} (${i.size}/${i.color || '-'})', ${i.quantity})" title="Set exact qty"><i class="fas fa-edit"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function quickAdjust(docId, current, delta) {
+    const newQty = Math.max(0, (current || 0) + delta);
+    try {
+        await db.collection('inventory').doc(docId).update({ quantity: newQty, updatedAt: fsServerTimestamp() });
+        const item = allInventory.find(i => i.docId === docId);
+        if (item) { item.quantity = newQty; renderInventory(); }
+    } catch (err) {
+        showAdminToast('Update failed: ' + err.message, 'error');
+    }
 }
 
 function openStockModal(docId, name, qty) {
@@ -902,3 +977,5 @@ window.loadMessages = loadMessages;
 window.renderMessages = renderMessages;
 window.toggleMessage = toggleMessage;
 window.markAllRead = markAllRead;
+window.quickAdjust = quickAdjust;
+window.setInvFilter = setInvFilter;

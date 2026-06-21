@@ -104,6 +104,12 @@
                         <div class="stat-label">New Messages</div>
                     </div>
                 </div>
+                <div class="quick-actions">
+                    <a href="#" class="qa-btn" onclick="navigateTo('orders');return false;"><i class="fas fa-box" style="color:#3b82f6"></i> View Orders</a>
+                    <a href="#" class="qa-btn" onclick="navigateTo('products');return false;"><i class="fas fa-tshirt" style="color:#8b5cf6"></i> Manage Products</a>
+                    <a href="#" class="qa-btn" onclick="navigateTo('inventory');return false;"><i class="fas fa-warehouse" style="color:#10b981"></i> Check Inventory</a>
+                    <a href="#" class="qa-btn" onclick="navigateTo('messages');return false;"><i class="fas fa-envelope" style="color:#f59e0b"></i> Read Messages</a>
+                </div>
                 <div class="dashboard-grid">
                     <div class="card">
                         <div class="card-header"><h3>Recent Orders</h3></div>
@@ -181,11 +187,20 @@
             <!-- Inventory Page -->
             <div class="page" id="page-inventory">
                 <div class="page-toolbar">
-                    <div class="toolbar-left"><h3 style="margin:0;font-size:1rem;font-weight:700;">Stock Management</h3></div>
+                    <div class="toolbar-left">
+                        <h3 style="margin:0;font-size:1rem;font-weight:700;">Stock Management</h3>
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-inv-filter="all" onclick="setInvFilter('all',this)">All</button>
+                            <button class="filter-btn" data-inv-filter="low" onclick="setInvFilter('low',this)">Low Stock</button>
+                            <button class="filter-btn" data-inv-filter="out" onclick="setInvFilter('out',this)">Out of Stock</button>
+                        </div>
+                    </div>
                     <div class="toolbar-right">
-                        <button class="btn-primary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync Products</button>
+                        <input type="text" id="inventorySearch" placeholder="Search by product, size, color..." class="search-input" oninput="renderInventory()">
+                        <button class="btn-primary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync</button>
                     </div>
                 </div>
+                <div class="inv-summary" id="invSummary"></div>
                 <div class="table-wrap">
                     <table class="data-table" id="inventoryTable">
                         <thead>
@@ -193,9 +208,10 @@
                                 <th>Product</th>
                                 <th>Size</th>
                                 <th>Color</th>
-                                <th>Stock Qty</th>
+                                <th>Qty</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th>Adjust</th>
+                                <th>Edit</th>
                             </tr>
                         </thead>
                         <tbody id="inventoryTableBody"></tbody>

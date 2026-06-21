@@ -44,6 +44,9 @@ async function saveOrderToFirebase(order, shippingDetails) {
         // Mark as synced in localStorage so syncPendingOrders skips it
         _markSynced(order.id, shippingDetails.email);
 
+        // Deduct inventory for each ordered item
+        await deductInventoryForOrder(order.items);
+
         // Upsert customer record using email as doc ID (no read needed)
         const customerDocId = shippingDetails.email.replace(/[^a-zA-Z0-9]/g, '_');
         const customerDocRef = fireDb.collection('customers').doc(customerDocId);
@@ -61,6 +64,37 @@ async function saveOrderToFirebase(order, shippingDetails) {
     } catch (err) {
         console.error('Firebase order save error:', err);
         // Will be retried automatically by syncPendingOrders on next page load
+    }
+}
+
+// ===== Deduct inventory quantities when an order is placed =====
+async function deductInventoryForOrder(items) {
+    if (!window.fireDb || !items || !items.length) return;
+    try {
+        for (const item of items) {
+            if (!item.name || !item.selectedSize) continue;
+            const qty = item.qty || 1;
+            // Find inventory doc(s) matching product name + size
+            const snap = await fireDb.collection('inventory')
+                .where('productName', '==', item.name)
+                .where('size', '==', item.selectedSize)
+                .get();
+            if (snap.empty) { console.warn('[inventory] No doc found for:', item.name, item.selectedSize); continue; }
+            // If multiple color variants exist, match by selectedColor; else take first
+            let doc = snap.docs[0];
+            if (item.selectedColor && snap.docs.length > 1) {
+                const match = snap.docs.find(d => (d.data().color || '').toLowerCase() === item.selectedColor.toLowerCase());
+                if (match) doc = match;
+            }
+            const current = doc.data().quantity || 0;
+            await fireDb.collection('inventory').doc(doc.id).update({
+                quantity: Math.max(0, current - qty),
+                updatedAt: fsServerTimestamp()
+            });
+            console.log(`[inventory] ${item.name} (${item.selectedSize}) ${current} → ${Math.max(0, current - qty)}`);
+        }
+    } catch (err) {
+        console.error('[inventory deduct]', err);
     }
 }
 
