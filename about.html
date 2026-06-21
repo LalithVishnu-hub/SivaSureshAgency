@@ -228,7 +228,13 @@
     <button id="backToTop" class="back-to-top"><i class="fas fa-chevron-up"></i></button>
     <a href="https://wa.me/919366640050" class="whatsapp-float" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i></a>
     <script src="js/script.js"></script>
-    <script type="module" src="js/firebase-db.js"></script>
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+    <!-- Firebase initialization -->
+    <script src="js/firebase-db-init.js"></script>
     <script defer src="js/firebase-integration.js"></script>
 </body>
 </html>
