@@ -11,7 +11,7 @@ import argparse, json, urllib.request, urllib.error, sys
 
 API_KEY    = "AIzaSyD3H7U7WwkRWx6hvsQxTGkmGO2Uq9xd4n4"
 PROJECT_ID = "siva-suresh-agency"
-DB_NAME    = "sivasureshagency"
+DB_NAME    = "(default)"  # Use default database — named DB not supported on Spark plan
 SIGN_IN_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={API_KEY}"
 FS_BASE     = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/{DB_NAME}/documents"
 

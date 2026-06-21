@@ -4,7 +4,7 @@ import urllib.request, urllib.error, json
 
 API_KEY    = "AIzaSyD3H7U7WwkRWx6hvsQxTGkmGO2Uq9xd4n4"
 PROJECT_ID = "siva-suresh-agency"
-DB_NAME    = "sivasureshagency"
+DB_NAME    = "(default)"
 FS_BASE    = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/{DB_NAME}/documents"
 
 # Sign in as admin to get token (needed for delete)
