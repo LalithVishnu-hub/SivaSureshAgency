@@ -391,51 +391,67 @@ async function deleteProduct(docId) {
 
 // Sync products from the local productsData (first-time setup)
 async function syncInventoryFromProducts() {
-    if (!confirm('This will add all products from the site to Firestore. Continue?')) return;
-    // We load the productsData from the main script
-    const script = document.createElement('script');
-    script.textContent = `window._productsData = ${JSON.stringify(getLocalProductsData())};`;
-    document.body.appendChild(script);
+    const btn = document.querySelector('button[onclick="syncInventoryFromProducts()"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...'; }
 
     const products = getLocalProductsData();
     let count = 0;
-    for (const p of products) {
-        const existing = await db.collection('products').where('name', '==', p.name).get();
-        if (existing.empty) {
-            await db.collection('products').add({
-                name: p.name,
-                category: p.category,
-                price: p.price,
-                oldPrice: p.oldPrice || null,
-                gender: p.gender || null,
-                sleeve: p.sleeve || null,
-                sizes: p.sizes || [],
-                description: p.description || '',
-                image: p.image || '',
-                badge: p.badge || '',
-                totalStock: 100,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            // Create inventory entries for each size
-            const colors = getColorsForCategory(p.category);
-            for (const size of (p.sizes || [])) {
-                for (const color of colors) {
-                    await db.collection('inventory').add({
-                        productName: p.name,
-                        productCategory: p.category,
-                        size: size,
-                        color: color,
-                        quantity: 20,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
+    try {
+        showAdminToast('Syncing products to Firestore...', 'info');
+        for (const p of products) {
+            const existing = await db.collection('products').where('name', '==', p.name).get();
+            if (existing.empty) {
+                await db.collection('products').add({
+                    name: p.name,
+                    category: p.category,
+                    price: p.price,
+                    oldPrice: p.oldPrice || null,
+                    gender: p.gender || null,
+                    sleeve: p.sleeve || null,
+                    sizes: p.sizes || [],
+                    description: p.description || '',
+                    image: p.image || '',
+                    badge: p.badge || '',
+                    totalStock: 100,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                // Create inventory entries for each size
+                const colors = getColorsForCategory(p.category);
+                for (const size of (p.sizes || [])) {
+                    for (const color of colors) {
+                        await db.collection('inventory').add({
+                            productName: p.name,
+                            productCategory: p.category,
+                            size: size,
+                            color: color,
+                            quantity: 20,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
                 }
+                count++;
             }
-            count++;
         }
+        showAdminToast(`Synced ${count} products to Firestore!`);
+        loadProducts();
+        loadInventory();
+    } catch (err) {
+        console.error('Sync error:', err);
+        const msg = err.code === 'permission-denied'
+            ? 'Permission denied — publish Firestore rules in Firebase Console (Firestore > Security tab) then retry.'
+            : 'Sync failed: ' + err.message;
+        showAdminToast(msg, 'error');
+        // Show inline alert so user cannot miss it
+        const panel = document.getElementById('page-inventory') || document.getElementById('page-products');
+        if (panel) {
+            const alert = document.createElement('div');
+            alert.style.cssText = 'background:#fee;border:1px solid #f55;padding:12px 16px;border-radius:8px;margin:12px 0;font-size:0.9rem;color:#c00;';
+            alert.innerHTML = '<strong>Error:</strong> ' + msg + '<br><a href="https://console.firebase.google.com/project/siva-suresh-agency/firestore/databases/-default-/rules" target="_blank" style="color:#0e4a86;">Click here to open Firestore Security Rules &rarr;</a>';
+            panel.prepend(alert);
+        }
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync"></i> Sync Products'; }
     }
-    showAdminToast(`Synced ${count} products to Firestore`);
-    loadProducts();
-    loadInventory();
 }
 
 function getColorsForCategory(category) {
