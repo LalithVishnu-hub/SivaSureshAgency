@@ -1,0 +1,2 @@
+Trigger file to force Lighthouse CI run
+Timestamp: 2026-06-21T00:00:00Z
