@@ -1,8 +1,3 @@
-/**
- * Firebase initialization
- * Auth/Storage use compat SDK; Firestore uses modular SDK to support named database "sivasureshagency"
- */
-
 console.log('[firebase-db-init] Starting Firebase initialization...');
 
 // Initialize Firebase config (compat SDK already loaded via HTML script tags)
@@ -16,11 +11,9 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-console.log('[firebase-db-init] Firebase app initialized');
 
 const _auth = firebase.auth();
 const _storage = firebase.storage();
-console.log('[firebase-db-init] Got auth, storage');
 
 window.auth = {
     onAuthStateChanged: (cb) => _auth.onAuthStateChanged(cb),
@@ -67,9 +60,7 @@ window.getCurrentUser = () => _auth.currentUser;
         window.fsServerTimestamp = serverTimestamp;
         window.fsIncrement = increment;
         window._firebaseReady = true;
-
-        console.log('[firebase-db-init] Firestore connected to named database: sivasureshagency');
-        console.log('[firebase-db-init] window.auth:', typeof window.auth, '| window.db:', typeof window.db);
+        console.log('[firebase-db-init] ✓ Ready');
     } catch (err) {
         console.error('[firebase-db-init] Firestore init failed:', err);
     }

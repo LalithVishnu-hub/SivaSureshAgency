@@ -1,9 +1,4 @@
-﻿// db, auth, fsServerTimestamp, fsIncrement are set by js/firebase-db.js (module)
-console.log('[admin.js] Loading... Checking for Firebase globals:', {
-    _ready: typeof window._firebaseReady,
-    auth: typeof window.auth,
-    db: typeof window.db
-});
+﻿// db, auth, fsServerTimestamp, fsIncrement are set by js/firebase-db-init.js
 
 // ===== State =====
 let currentOrderFilter = 'all';
@@ -24,7 +19,6 @@ function initializeAuthListener() {
     
     if (typeof auth === 'undefined' || !auth || !window._firebaseReady) {
         if (authInitAttempts > 100) {
-            console.error('[admin.js] Firebase auth failed to initialize after 5 seconds');
             const loginErr = document.getElementById('loginError');
             if (loginErr) loginErr.textContent = 'Firebase initialization failed. Please refresh the page.';
             return;
@@ -32,28 +26,38 @@ function initializeAuthListener() {
         setTimeout(initializeAuthListener, 50);
         return;
     }
-    console.log('[admin.js] Firebase auth ready, setting up listener');
     auth.onAuthStateChanged(user => {
         // Only treat as admin if user has an email (not anonymous)
         if (user && user.email) {
-            console.log('[admin.js] Admin logged in:', user.email);
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('adminPanel').style.display = 'flex';
             document.getElementById('adminName').textContent = user.email.split('@')[0];
-            loadDashboard();
+            // Wait for Firestore (window.db) to be ready before loading data
+            waitForDbThenLoad();
         } else {
             // No user, or anonymous user - show login screen
             if (user && !user.email) {
-                console.log('[admin.js] Anonymous user detected - signing out and showing login');
                 auth.signOut();
-            } else {
-                console.log('[admin.js] No admin session');
             }
             document.getElementById('loginScreen').style.display = 'flex';
             document.getElementById('adminPanel').style.display = 'none';
         }
     });
 }
+// Wait for window.db to be ready then load dashboard
+function waitForDbThenLoad(attempts) {
+    attempts = attempts || 0;
+    if (window.db && window._firebaseReady) {
+        console.log('[admin.js] Firestore ready — loading dashboard');
+        loadDashboard();
+    } else if (attempts > 60) {
+        console.error('[admin.js] Firestore not ready after 3s');
+        showAdminToast('Database connection failed. Please refresh.', 'error');
+    } else {
+        setTimeout(() => waitForDbThenLoad(attempts + 1), 50);
+    }
+}
+
 // Start listening for auth changes
 initializeAuthListener();
 
@@ -667,6 +671,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 // ===== Toast =====
 function showAdminToast(msg, type = 'success') {
     const toast = document.getElementById('adminToast');
+    if (!toast) { console.log('[toast]', type, msg); return; }
     toast.textContent = msg;
     toast.className = 'admin-toast ' + type + ' show';
     setTimeout(() => toast.classList.remove('show'), 3000);

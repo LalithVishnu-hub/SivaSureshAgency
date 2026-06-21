@@ -377,17 +377,7 @@
     <!-- Toast -->
     <div id="adminToast" class="admin-toast"></div>
 
-    <!-- Debug logging -->
-    <script>
-        window.addEventListener('error', (e) => {
-            console.error('[window.error]', e.message, e.filename, e.lineno);
-        });
-        window.addEventListener('unhandledrejection', (e) => {
-            console.error('[unhandledrejection]', e.reason);
-        });
-    </script>
-
-    <!-- Firebase Compat SDK (easier for GitHub Pages) -->
+    <!-- Firebase Compat SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -395,18 +385,6 @@
     
     <!-- Firebase initialization -->
     <script src="js/firebase-db-init.js"></script>
-    
-    <!-- Verify Firebase initialization -->
-    <script>
-        setTimeout(() => {
-            console.log('[admin.html] Checking Firebase:', {
-                ready: typeof window._firebaseReady,
-                auth: typeof window.auth,
-                db: typeof window.db
-            });
-        }, 500);
-    </script>
-    
     <script defer src="js/admin.js"></script>
 </body>
 </html>
