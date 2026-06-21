@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Siva Suresh Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="icon" type="image/jpeg" href="images/Images/SSA Logo.png">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <div class="login-logo">
+                <img src="images/Images/SSA Logo.png" alt="SSA Logo" width="60">
+                <h1>Siva Suresh Agency</h1>
+                <p>Admin Panel</p>
+            </div>
+            <form id="loginForm" onsubmit="handleAdminLogin(event)">
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <input type="email" id="adminEmail" placeholder="admin@sivasureshagency.com" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="adminPassword" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn-login" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                <p class="login-error" id="loginError"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="admin-panel" style="display:none;">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="images/Images/SSA Logo.png" alt="SSA" width="36">
+                <span>SSA Admin</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard"><i class="fas fa-chart-line"></i> Dashboard</a>
+                <a href="#" class="nav-item" data-page="orders"><i class="fas fa-box"></i> Orders</a>
+                <a href="#" class="nav-item" data-page="products"><i class="fas fa-tshirt"></i> Products</a>
+                <a href="#" class="nav-item" data-page="inventory"><i class="fas fa-warehouse"></i> Inventory</a>
+                <a href="#" class="nav-item" data-page="customers"><i class="fas fa-users"></i> Customers</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button onclick="handleAdminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+                <h2 id="pageTitle">Dashboard</h2>
+                <div class="topbar-right">
+                    <span id="adminName">Admin</span>
+                    <a href="index.html" target="_blank" class="btn-sm"><i class="fas fa-external-link-alt"></i> View Site</a>
+                </div>
+            </header>
+
+            <!-- Dashboard Page -->
+            <div class="page active" id="page-dashboard">
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fas fa-box"></i></div>
+                        <div class="stat-info">
+                            <h3 id="statTotalOrders">0</h3>
+                            <p>Total Orders</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange"><i class="fas fa-clock"></i></div>
+                        <div class="stat-info">
+                            <h3 id="statPending">0</h3>
+                            <p>Pending Orders</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i class="fas fa-rupee-sign"></i></div>
+                        <div class="stat-info">
+                            <h3 id="statRevenue">₹0</h3>
+                            <p>Total Revenue</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h3 id="statCustomers">0</h3>
+                            <p>Customers</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header"><h3>Recent Orders</h3></div>
+                        <div class="card-body" id="recentOrdersList"><p class="empty">Loading...</p></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>Low Stock Alerts</h3></div>
+                        <div class="card-body" id="lowStockList"><p class="empty">Loading...</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Page -->
+            <div class="page" id="page-orders">
+                <div class="page-toolbar">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-status="all">All</button>
+                        <button class="filter-btn" data-status="Processing">Pending</button>
+                        <button class="filter-btn" data-status="Approved">Approved</button>
+                        <button class="filter-btn" data-status="Shipped">Shipped</button>
+                        <button class="filter-btn" data-status="Delivered">Delivered</button>
+                        <button class="filter-btn" data-status="Cancelled">Cancelled</button>
+                    </div>
+                    <input type="text" id="orderSearch" placeholder="Search order ID or customer..." class="search-input">
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Products Page -->
+            <div class="page" id="page-products">
+                <div class="page-toolbar">
+                    <button class="btn-primary" onclick="openProductModal()"><i class="fas fa-plus"></i> Add Product</button>
+                    <input type="text" id="productSearch" placeholder="Search products..." class="search-input">
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="productsTable">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Inventory Page -->
+            <div class="page" id="page-inventory">
+                <div class="page-toolbar">
+                    <h3 style="margin:0;">Stock Management</h3>
+                    <button class="btn-primary" onclick="syncInventoryFromProducts()"><i class="fas fa-sync"></i> Sync Products</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="inventoryTable">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Size</th>
+                                <th>Color</th>
+                                <th>Stock Qty</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Customers Page -->
+            <div class="page" id="page-customers">
+                <div class="page-toolbar">
+                    <h3 style="margin:0;">Registered Customers</h3>
+                    <input type="text" id="customerSearch" placeholder="Search customers..." class="search-input">
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="customersTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Orders</th>
+                                <th>Total Spent</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-box"></i> Order Details</h3>
+                <button onclick="closeModal('orderModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="orderModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Product Edit Modal -->
+    <div class="modal-overlay" id="productModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="productModalTitle"><i class="fas fa-tshirt"></i> Add Product</h3>
+                <button onclick="closeModal('productModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm" onsubmit="saveProduct(event)">
+                    <input type="hidden" id="productEditId">
+                    <div class="form-row">
+                        <div class="form-group"><label>Product Name *</label><input type="text" id="pName" required></div>
+                        <div class="form-group"><label>Category *</label>
+                            <select id="pCategory" required>
+                                <option value="doctor-uniform">Doctor Uniform</option>
+                                <option value="staff-uniform">Staff Uniform</option>
+                                <option value="bedsheets">Bedsheets</option>
+                                <option value="hospital-linen">Hospital Linen</option>
+                                <option value="hotel-linen">Hotel Linen</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Price (₹) *</label><input type="number" id="pPrice" required></div>
+                        <div class="form-group"><label>Old Price (₹)</label><input type="number" id="pOldPrice"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Gender</label>
+                            <select id="pGender"><option value="">None</option><option value="male">Male</option><option value="female">Female</option></select>
+                        </div>
+                        <div class="form-group"><label>Sleeve</label>
+                            <select id="pSleeve"><option value="">None</option><option value="full">Full</option><option value="half">Half</option></select>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Sizes (comma separated) *</label><input type="text" id="pSizes" placeholder="S,M,L,XL,XXL,XXXL" required></div>
+                    <div class="form-group"><label>Description</label><textarea id="pDescription" rows="3"></textarea></div>
+                    <div class="form-group"><label>Image Path</label><input type="text" id="pImage" placeholder="images/Images/filename.jpg"></div>
+                    <div class="form-group"><label>Badge</label><input type="text" id="pBadge" placeholder="New, Popular, Premium, Bestseller"></div>
+                    <button type="submit" class="btn-primary btn-full"><i class="fas fa-save"></i> Save Product</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Update Modal -->
+    <div class="modal-overlay" id="stockModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-boxes"></i> Update Stock</h3>
+                <button onclick="closeModal('stockModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="stockForm" onsubmit="saveStock(event)">
+                    <input type="hidden" id="stockDocId">
+                    <p id="stockProductName" style="font-weight:600;margin-bottom:12px;"></p>
+                    <div class="form-group"><label>Quantity</label><input type="number" id="stockQty" min="0" required></div>
+                    <button type="submit" class="btn-primary btn-full"><i class="fas fa-save"></i> Update</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="adminToast" class="admin-toast"></div>
+
+    <!-- Firebase SDKs (CDN - compat mode for vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
