@@ -136,20 +136,26 @@ async function syncPendingOrders(userEmail, userName, userPhone) {
 // ===== Save Customer Registration to Firestore =====
 async function saveCustomerToFirebase(customerData) {
     try {
+        if (!window.fireDb) { console.log('[customer] Firebase not ready'); return; }
         await _ensureAuth();
+        const fullName = (customerData.firstName || '') + ' ' + (customerData.lastName || '');
         const existing = await fireDb.collection('customers').where('email', '==', customerData.email).get();
         if (existing.empty) {
+            console.log('[customer] Creating new customer:', customerData.email);
             await fireDb.collection('customers').add({
-                name: customerData.firstName + ' ' + customerData.lastName,
+                name: fullName,
                 email: customerData.email,
-                phone: customerData.phone,
+                phone: customerData.phone || '',
                 orderCount: 0,
                 totalSpent: 0,
                 createdAt: fsServerTimestamp()
             });
+            console.log('[customer] ✓ Customer saved to Firestore');
+        } else {
+            console.log('[customer] Customer already exists');
         }
     } catch (err) {
-        console.error('Firebase customer save error:', err);
+        console.error('[customer] ✗ Save failed:', err.message || err);
     }
 }
 

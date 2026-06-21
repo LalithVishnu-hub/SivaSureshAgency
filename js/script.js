@@ -591,16 +591,53 @@ function handleRegister() {
     localStorage.setItem('ssa_users', JSON.stringify(users));
     currentUser = { name: firstName + ' ' + lastName, email, phone };
     localStorage.setItem('ssa_user', JSON.stringify(currentUser));
-    // Save customer to Firebase
-    if (typeof saveCustomerToFirebase === 'function') saveCustomerToFirebase({ firstName, lastName, email, phone });
+    // Save customer to Firebase (async but we continue immediately)
+    console.log('[register] Saving customer to Firestore...');
+    if (typeof saveCustomerToFirebase === 'function') {
+        saveCustomerToFirebase({ firstName, lastName, email, phone })
+            .catch(err => console.error('[register] Async save failed:', err));
+    }
     closeAuthModal(); updateAuthUI(); showToast(`Welcome, ${firstName}!`);
 }
 function closeAuthModal() { document.getElementById('authModal').classList.remove('active'); }
-function openAccountPanel() {
+async function openAccountPanel() {
     const modal = document.getElementById('authModal');
-    const orders = JSON.parse(localStorage.getItem('ssa_orders_' + currentUser.email) || '[]');
-    modal.innerHTML = `<div class="modal account-modal"><button class="modal-close" onclick="closeAuthModal()"><i class="fas fa-times"></i></button><div class="account-header"><div class="account-avatar"><i class="fas fa-user-circle"></i></div><h3>${currentUser.name}</h3><p>${currentUser.email}</p></div><div class="account-tabs"><button class="account-tab active" onclick="showAccountTab('orders')"><i class="fas fa-box"></i> Orders</button><button class="account-tab" onclick="showAccountTab('profile')"><i class="fas fa-user-edit"></i> Profile</button></div><div class="account-content" id="accountOrders">${orders.length === 0 ? '<div class="empty-orders"><i class="fas fa-box-open"></i><p>No orders yet</p></div>' : orders.map(o => `<div class="order-card"><div class="order-card-header"><div><span class="order-id-label">#${o.id}</span><span class="order-date">${new Date(o.date).toLocaleDateString('en-IN')}</span></div><span class="order-status">${o.status}</span></div><div class="order-card-items">${o.items.map(i => `<div class="order-item-row"><span>${i.name} x${i.qty}</span><span>₹${i.price*i.qty}</span></div>`).join('')}</div><div class="order-card-footer"><span class="order-total">₹${o.total.toLocaleString()}</span><span class="order-payment">${o.payment}</span></div></div>`).join('')}</div><div class="account-content" id="accountProfile" style="display:none;"><div class="profile-info"><div class="profile-row"><label>Name:</label><span>${currentUser.name}</span></div><div class="profile-row"><label>Email:</label><span>${currentUser.email}</span></div><div class="profile-row"><label>Phone:</label><span>${currentUser.phone||'N/A'}</span></div></div></div><button class="btn btn-outline-dark btn-full" style="margin-top:15px;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button></div>`;
+    // Show loading state
+    modal.innerHTML = `<div class="modal account-modal"><button class="modal-close" onclick="closeAuthModal()"><i class="fas fa-times"></i></button><div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin" style="font-size:24px;color:#0066cc;"></i><p>Loading your account...</p></div></div>`;
     modal.classList.add('active');
+    
+    try {
+        // Fetch latest orders from Firestore (get admin-updated status)
+        let firestoreOrders = [];
+        if (window.fireDb) {
+            try {
+                const snap = await fireDb.collection('orders').where('customerEmail', '==', currentUser.email).get();
+                firestoreOrders = snap.docs.map(d => ({
+                    id: d.data().orderId,
+                    date: d.data().createdAt?.seconds ? new Date(d.data().createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+                    items: d.data().items || [],
+                    total: d.data().total || 0,
+                    payment: d.data().payment || 'COD',
+                    status: d.data().status || 'Processing'
+                }));
+                console.log('[account] Fetched', firestoreOrders.length, 'orders from Firestore');
+            } catch (e) {
+                console.warn('[account] Could not fetch from Firestore:', e.message);
+            }
+        }
+        
+        // Fall back to localStorage if Firestore fetch failed
+        const localOrders = JSON.parse(localStorage.getItem('ssa_orders_' + currentUser.email) || '[]');
+        const orders = firestoreOrders.length > 0 ? firestoreOrders : localOrders;
+        
+        // Now render
+        modal.innerHTML = `<div class="modal account-modal"><button class="modal-close" onclick="closeAuthModal()"><i class="fas fa-times"></i></button><div class="account-header"><div class="account-avatar"><i class="fas fa-user-circle"></i></div><h3>${currentUser.name}</h3><p>${currentUser.email}</p></div><div class="account-tabs"><button class="account-tab active" onclick="showAccountTab('orders')"><i class="fas fa-box"></i> Orders</button><button class="account-tab" onclick="showAccountTab('profile')"><i class="fas fa-user-edit"></i> Profile</button></div><div class="account-content" id="accountOrders">${orders.length === 0 ? '<div class="empty-orders"><i class="fas fa-box-open"></i><p>No orders yet</p></div>' : orders.map(o => `<div class="order-card"><div class="order-card-header"><div><span class="order-id-label">#${o.id}</span><span class="order-date">${new Date(o.date).toLocaleDateString('en-IN')}</span></div><span class="order-status">${o.status}</span></div><div class="order-card-items">${o.items.map(i => `<div class="order-item-row"><span>${i.name} x${i.qty}</span><span>₹${i.price*i.qty}</span></div>`).join('')}</div><div class="order-card-footer"><span class="order-total">₹${o.total.toLocaleString()}</span><span class="order-payment">${o.payment}</span></div></div>`).join('')}</div><div class="account-content" id="accountProfile" style="display:none;"><div class="profile-info"><div class="profile-row"><label>Name:</label><span>${currentUser.name}</span></div><div class="profile-row"><label>Email:</label><span>${currentUser.email}</span></div><div class="profile-row"><label>Phone:</label><span>${currentUser.phone||'N/A'}</span></div></div></div><button class="btn btn-outline-dark btn-full" style="margin-top:15px;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button></div>`;
+    } catch (err) {
+        console.error('[account] Error:', err);
+        // Fallback to localStorage
+        const orders = JSON.parse(localStorage.getItem('ssa_orders_' + currentUser.email) || '[]');
+        modal.innerHTML = `<div class="modal account-modal"><button class="modal-close" onclick="closeAuthModal()"><i class="fas fa-times"></i></button><div class="account-header"><div class="account-avatar"><i class="fas fa-user-circle"></i></div><h3>${currentUser.name}</h3><p>${currentUser.email}</p></div><div class="account-tabs"><button class="account-tab active" onclick="showAccountTab('orders')"><i class="fas fa-box"></i> Orders</button><button class="account-tab" onclick="showAccountTab('profile')"><i class="fas fa-user-edit"></i> Profile</button></div><div class="account-content" id="accountOrders">${orders.length === 0 ? '<div class="empty-orders"><i class="fas fa-box-open"></i><p>No orders yet</p></div>' : orders.map(o => `<div class="order-card"><div class="order-card-header"><div><span class="order-id-label">#${o.id}</span><span class="order-date">${new Date(o.date).toLocaleDateString('en-IN')}</span></div><span class="order-status">${o.status}</span></div><div class="order-card-items">${o.items.map(i => `<div class="order-item-row"><span>${i.name} x${i.qty}</span><span>₹${i.price*i.qty}</span></div>`).join('')}</div><div class="order-card-footer"><span class="order-total">₹${o.total.toLocaleString()}</span><span class="order-payment">${o.payment}</span></div></div>`).join('')}</div><div class="account-content" id="accountProfile" style="display:none;"><div class="profile-info"><div class="profile-row"><label>Name:</label><span>${currentUser.name}</span></div><div class="profile-row"><label>Email:</label><span>${currentUser.email}</span></div><div class="profile-row"><label>Phone:</label><span>${currentUser.phone||'N/A'}</span></div></div></div><button class="btn btn-outline-dark btn-full" style="margin-top:15px;" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button></div>`;
+    }
 }
 function showAccountTab(tab) {
     document.querySelectorAll('.account-tab').forEach(t => t.classList.remove('active'));
