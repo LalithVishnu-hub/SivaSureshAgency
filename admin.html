@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -90,7 +90,7 @@
                     </div>
                     <div class="stat-card green">
                         <div class="stat-icon-wrap"><i class="fas fa-rupee-sign"></i></div>
-                        <div class="stat-value" id="statRevenue">₹0</div>
+                        <div class="stat-value" id="statRevenue">â‚¹0</div>
                         <div class="stat-label">Total Revenue</div>
                     </div>
                     <div class="stat-card purple">
@@ -293,8 +293,8 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Price (₹) *</label><input type="number" id="pPrice" required></div>
-                        <div class="form-group"><label>Old Price (₹)</label><input type="number" id="pOldPrice"></div>
+                        <div class="form-group"><label>Price (â‚¹) *</label><input type="number" id="pPrice" required></div>
+                        <div class="form-group"><label>Old Price (â‚¹)</label><input type="number" id="pOldPrice"></div>
                     </div>
                     <div class="form-row">
                         <div class="form-group"><label>Gender</label>
@@ -337,9 +337,9 @@
                     <div class="form-group">
                         <label>Stock Status</label>
                         <select id="stockStatus" style="background:var(--surface-2);">
-                            <option value="in_stock">✓ In Stock</option>
-                            <option value="low_stock">⚠ Low Stock</option>
-                            <option value="out_of_stock">✗ Out of Stock</option>
+                            <option value="in_stock">âœ“ In Stock</option>
+                            <option value="low_stock">âš  Low Stock</option>
+                            <option value="out_of_stock">âœ— Out of Stock</option>
                         </select>
                     </div>
                     <button type="submit" class="btn-primary btn-full"><i class="fas fa-save"></i> Save Status</button>
@@ -440,7 +440,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
     
     <!-- Firebase initialization -->
+    <script src="js/api.js?v=7"></script>
     <script src="js/firebase-db-init.js?v=7"></script>
     <script defer src="js/admin.js?v=7"></script>
 </body>
 </html>
+

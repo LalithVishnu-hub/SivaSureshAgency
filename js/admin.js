@@ -7,9 +7,9 @@ let allProducts = [];
 let allInventory = [];
 let allCustomers = [];
 
-// ===== In-memory cache to avoid hammering Firestore on every navigation =====
+// ===== In-memory cache (90s TTL) — prevents repeated Firestore reads =====
 const _cache = {};
-const _CACHE_TTL = 90_000; // 90 seconds
+const _CACHE_TTL = 90_000;
 async function _cachedGet(name, queryFn) {
     const now = Date.now();
     if (_cache[name] && (now - _cache[name].ts) < _CACHE_TTL) return _cache[name].data;
@@ -19,6 +19,17 @@ async function _cachedGet(name, queryFn) {
 }
 function _invalidateCache(...names) {
     names.forEach(n => { if (_cache[n]) _cache[n].ts = 0; });
+}
+
+// ===== API helper — use backend API when available, else Firestore =====
+// For admin reads we use the API; writes always go direct to Firestore
+// (writes are low-volume and need the admin auth token only Firestore checks).
+async function _adminApiOr(apiMethod, firestoreFn) {
+    if (window.ssaApi && window.ssaApi.enabled) {
+        try { return await window.ssaApi[apiMethod](); }
+        catch (e) { console.warn('[admin-api] falling back to Firestore:', e.message); }
+    }
+    return firestoreFn();
 }
 
 // ===== Wait for Firebase to initialize =====
@@ -144,75 +155,85 @@ function toggleSidebar() {
 // ===== Dashboard =====
 async function loadDashboard() {
     try {
-        // Sequential fetches to avoid Firestore 429 rate-limiting
+        // ── Try backend API (1 HTTP call vs 4 Firestore reads) ──
+        if (window.ssaApi && window.ssaApi.enabled) {
+            try {
+                const d = await window.ssaApi.adminDashboard();
+                _renderDashboard(d.totalOrders, d.pending, d.revenue, d.customers, d.unreadMsgs, d.recentOrders || [], d.stockAlerts || []);
+                return;
+            } catch (e) { console.warn('[dashboard] API failed, using Firestore:', e.message); }
+        }
+
+        // ── Sequential Firestore fallback (cached 90s) ────────
         const ordersSnap    = await _cachedGet('orders',    () => db.collection('orders').get());
         const customersSnap = await _cachedGet('customers', () => db.collection('customers').get());
         const invSnap       = await _cachedGet('inventory', () => db.collection('inventory').get());
         const messagesSnap  = await _cachedGet('messages',  () => db.collection('messages').get());
 
-        const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const totalOrders = orders.length;
-        const pending = orders.filter(o => o.status === 'Processing').length;
-        const revenue = orders.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + (o.total || 0), 0);
+        const orders     = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const unreadMsgs = messagesSnap.docs.filter(d => !d.data().read).length;
+        const invDocs    = invSnap.docs.map(d => d.data());
+        const alerts     = invDocs.filter(i => { const st = i.status || (i.quantity === 0 ? 'out_of_stock' : i.quantity <= 10 ? 'low_stock' : 'in_stock'); return st !== 'in_stock'; })
+                                   .map(i => ({ productName: i.productName, size: i.size, color: i.color, status: i.status }));
+        const recent     = orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 5);
 
-        document.getElementById('statTotalOrders').textContent = totalOrders;
-        document.getElementById('statPending').textContent = pending;
-        document.getElementById('statRevenue').textContent = '\u20b9' + revenue.toLocaleString();
-        document.getElementById('statCustomers').textContent = customersSnap.size;
-        document.getElementById('statMessages').textContent = unreadMsgs;
+        _renderDashboard(
+            orders.length,
+            orders.filter(o => o.status === 'Processing').length,
+            orders.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + (o.total || 0), 0),
+            customersSnap.size,
+            unreadMsgs,
+            recent,
+            alerts
+        );
+    } catch (err) { console.error('Dashboard error:', err); }
+}
 
-        // Update message badge in sidebar
-        const badge = document.getElementById('msgBadge');
-        if (badge) { badge.textContent = unreadMsgs; badge.style.display = unreadMsgs > 0 ? 'inline' : 'none'; }
+function _renderDashboard(totalOrders, pending, revenue, customers, unreadMsgs, recentOrders, stockAlerts) {
+    document.getElementById('statTotalOrders').textContent = totalOrders;
+    document.getElementById('statPending').textContent     = pending;
+    document.getElementById('statRevenue').textContent     = '\u20b9' + revenue.toLocaleString();
+    document.getElementById('statCustomers').textContent   = customers;
+    document.getElementById('statMessages').textContent    = unreadMsgs;
+    const badge = document.getElementById('msgBadge');
+    if (badge) { badge.textContent = unreadMsgs; badge.style.display = unreadMsgs > 0 ? 'inline' : 'none'; }
 
-        // Recent orders (top 5)
-        const recent = orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 5);
-        const recentHtml = recent.length ? recent.map(o => `
-            <div class="list-item">
-                <div class="list-item-info">
-                    <strong>#${o.orderId || o.id.slice(0, 8)}</strong>
-                    <span>${o.customerName || 'Guest'} &bull; ${o.createdAt ? new Date(o.createdAt.seconds*1000).toLocaleDateString('en-IN') : ''}</span>
-                </div>
-                <div class="list-item-right">
-                    <span class="amount">\u20b9${(o.total || 0).toLocaleString()}</span>
-                    <span class="status-badge ${(o.status || '').toLowerCase()}">${o.status}</span>
-                </div>
+    // Recent orders
+    const recentHtml = recentOrders.length ? recentOrders.map(o => `
+        <div class="list-item">
+            <div class="list-item-info">
+                <strong>#${o.orderId || (o.docId || '').slice(0, 8)}</strong>
+                <span>${o.customerName || 'Guest'} &bull; ${o.createdAt ? new Date(o.createdAt.seconds*1000).toLocaleDateString('en-IN') : ''}</span>
             </div>
-        `).join('') : '<p class="empty">No orders yet</p>';
-        document.getElementById('recentOrdersList').innerHTML = recentHtml;
+            <div class="list-item-right">
+                <span class="amount">\u20b9${(o.total || 0).toLocaleString()}</span>
+                <span class="status-badge ${(o.status || '').toLowerCase()}">${o.status}</span>
+            </div>
+        </div>`).join('') : '<p class="empty">No orders yet</p>';
+    document.getElementById('recentOrdersList').innerHTML = recentHtml;
 
-        // Stock alerts based on status field
-        const invDocs = invSnap.docs.map(d => d.data());
-        const alerts = invDocs.filter(i => {
-            const st = i.status || (i.quantity === 0 ? 'out_of_stock' : i.quantity <= 10 ? 'low_stock' : 'in_stock');
-            return st === 'low_stock' || st === 'out_of_stock';
-        });
-        const alertHtml = alerts.length ? alerts.map(s => {
-            const st = s.status || (s.quantity === 0 ? 'out_of_stock' : 'low_stock');
-            return `
-            <div class="list-item">
-                <div class="list-item-info">
-                    <strong>${s.productName}</strong>
-                    <span>Size: ${s.size}${s.color ? ' | ' + s.color : ''}</span>
-                </div>
-                <div class="list-item-right">
-                    <span class="status-badge ${st === 'out_of_stock' ? 'cancelled' : 'processing'}">${st === 'out_of_stock' ? 'Out of Stock' : 'Low Stock'}</span>
-                </div>
-            </div>`;
-        }).join('') : '<p class="empty">All stock levels OK \u2705</p>';
-        document.getElementById('lowStockList').innerHTML = alertHtml;
-    } catch (err) {
-        console.error('Dashboard error:', err);
-    }
+    // Stock alerts
+    const alertHtml = stockAlerts.length ? stockAlerts.map(s => `
+        <div class="list-item">
+            <div class="list-item-info"><strong>${s.productName}</strong><span>Size: ${s.size}${s.color ? ' | ' + s.color : ''}</span></div>
+            <div class="list-item-right"><span class="status-badge ${s.status === 'out_of_stock' ? 'cancelled' : 'processing'}">${s.status === 'out_of_stock' ? 'Out of Stock' : 'Low Stock'}</span></div>
+        </div>`).join('') : '<p class="empty">All stock levels OK \u2705</p>';
+    document.getElementById('lowStockList').innerHTML = alertHtml;
 }
 
 // ===== Orders =====
 async function loadOrders() {
     const tbody = document.getElementById('ordersTableBody');
     try {
-        const snap = await _cachedGet('orders', () => db.collection('orders').get());
-        allOrders = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        const data = await _adminApiOr('adminOrders',
+            () => _cachedGet('orders', () => db.collection('orders').get()).then(snap => {
+                const docs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+                docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                return docs;
+            })
+        );
+        // data is either an array (from API) or needs extraction from snap
+        allOrders = Array.isArray(data) ? data : data.docs.map(d => ({ docId: d.id, ...d.data() }));
         allOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         renderOrders();
     } catch (err) {
@@ -322,11 +343,13 @@ async function viewOrder(docId) {
 }
 
 async function saveOrderUpdate(docId) {
-    const status = document.getElementById('orderStatusSelect').value;
+    const status    = document.getElementById('orderStatusSelect').value;
     const trackingId = document.getElementById('orderTracking').value.trim();
     try {
+        // Always write directly to Firestore (write operations are low-volume)
         await db.collection('orders').doc(docId).update({ status, trackingId, updatedAt: fsServerTimestamp() });
         _invalidateCache('orders');
+        if (window.ssaApi && window.ssaApi.enabled) window.ssaApi.invalidate('/api/admin/orders');
         showAdminToast('Order updated successfully');
         closeModal('orderModal');
         loadOrders();
@@ -343,18 +366,17 @@ async function updateOrderStatus(docId) {
 // ===== Products =====
 async function loadProducts() {
     try {
-        const snap = await _cachedGet('products', () => db.collection('products').get());
-        allProducts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        const data = await _adminApiOr('adminProducts',
+            () => _cachedGet('products', () => db.collection('products').get()).then(snap => {
+                const docs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+                docs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                return docs;
+            })
+        );
+        allProducts = Array.isArray(data) ? data : data.docs.map(d => ({ docId: d.id, ...d.data() }));
         allProducts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        if (allProducts.length === 0) {
-            await autoSeedProducts();
-        } else {
-            await deduplicateProducts();
-            renderProducts();
-        }
-    } catch (err) {
-        console.error('Products error:', err);
-    }
+        if (allProducts.length === 0) { await autoSeedProducts(); } else { await deduplicateProducts(); renderProducts(); }
+    } catch (err) { console.error('Products error:', err); }
 }
 
 async function deduplicateProducts() {
@@ -642,13 +664,17 @@ function getLocalProductsData() {
 // ===== Inventory =====
 async function loadInventory() {
     try {
-        const snap = await _cachedGet('inventory', () => db.collection('inventory').get());
-        allInventory = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        const data = await _adminApiOr('adminInventory',
+            () => _cachedGet('inventory', () => db.collection('inventory').get()).then(snap => {
+                const docs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+                docs.sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
+                return docs;
+            })
+        );
+        allInventory = Array.isArray(data) ? data : data.docs.map(d => ({ docId: d.id, ...d.data() }));
         allInventory.sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
         renderInventory();
-    } catch (err) {
-        console.error('Inventory error:', err);
-    }
+    } catch (err) { console.error('Inventory error:', err); }
 }
 
 let _invFilter = 'all';
@@ -719,6 +745,7 @@ async function updateInventoryStatus(docId, status) {
     try {
         await db.collection('inventory').doc(docId).update({ status, updatedAt: fsServerTimestamp() });
         _invalidateCache('inventory');
+        if (window.ssaApi && window.ssaApi.enabled) { window.ssaApi.invalidate('/api/admin/inventory'); window.ssaApi.invalidate('/api/inventory'); }
         const item = allInventory.find(i => i.docId === docId);
         if (item) { item.status = status; renderInventory(); }
         const labels = { in_stock: 'In Stock', low_stock: 'Low Stock', out_of_stock: 'Out of Stock' };
@@ -884,8 +911,14 @@ async function saveStock(e) {
 async function loadCustomers() {
     const tbody = document.getElementById('customersTableBody');
     try {
-        const snap = await _cachedGet('customers', () => db.collection('customers').get());
-        allCustomers = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        const data = await _adminApiOr('adminCustomers',
+            () => _cachedGet('customers', () => db.collection('customers').get()).then(snap => {
+                const docs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+                docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                return docs;
+            })
+        );
+        allCustomers = Array.isArray(data) ? data : data.docs.map(d => ({ docId: d.id, ...d.data() }));
         allCustomers.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         renderCustomers();
     } catch (err) {

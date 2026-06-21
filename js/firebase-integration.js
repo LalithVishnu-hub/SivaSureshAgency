@@ -1,14 +1,16 @@
-// ===== Firebase Integration for Customer Site =====
-// fireDb is set by js/firebase-db.js (module) which targets named DB "sivasureshagency"
-// fsServerTimestamp and fsIncrement are also set by firebase-db.js
+﻿// ============================================================
+//  Firebase Integration — firebase-integration.js
+//
+//  Routes through window.ssaApi (backend) when SSA_API_BASE
+//  is set in api.js. Falls back to direct Firestore otherwise.
+//  sessionStorage cache on loadOutOfStockData() is ALWAYS
+//  active — cuts repeated reads on every page navigation.
+// ============================================================
 
-// ── Helper: ensure anonymous Firebase auth ───────────────────────────
 async function _ensureAuth() {
     if (!window.auth) return;
-    try { await window.auth.signInAnonymously(); } catch (e) { /* already signed in or disabled */ }
+    try { await window.auth.signInAnonymously(); } catch (e) { }
 }
-
-// ── Helper: mark an order as synced in localStorage ─────────────────
 function _markSynced(orderId, userEmail) {
     const key = 'ssa_orders_' + userEmail;
     try {
@@ -18,197 +20,175 @@ function _markSynced(orderId, userEmail) {
     } catch (e) {}
 }
 
-// ===== Save Order to Firestore =====
+// ===== Save Order =====
 async function saveOrderToFirebase(order, shippingDetails) {
     try {
+        if (window.ssaApi && window.ssaApi.enabled) {
+            await window.ssaApi.postOrder({
+                orderId:       order.id,
+                customerName:  (shippingDetails.firstname + ' ' + shippingDetails.lastname).trim(),
+                customerEmail: shippingDetails.email,
+                customerPhone: shippingDetails.phone || '',
+                address: shippingDetails.address, city: shippingDetails.city, pincode: shippingDetails.pincode,
+                items: order.items, total: order.total, payment: order.payment
+            });
+            await window.ssaApi.postCustomer({ email: shippingDetails.email, firstName: shippingDetails.firstname, lastName: shippingDetails.lastname, phone: shippingDetails.phone || '' }).catch(() => {});
+            _markSynced(order.id, shippingDetails.email);
+            return;
+        }
         if (!window.fireDb) throw new Error('Firebase not initialised');
         await _ensureAuth();
-
         await fireDb.collection('orders').add({
             orderId: order.id,
-            customerName: shippingDetails.firstname + ' ' + shippingDetails.lastname,
+            customerName:  (shippingDetails.firstname + ' ' + shippingDetails.lastname).trim(),
             customerEmail: shippingDetails.email,
             customerPhone: shippingDetails.phone,
-            address: shippingDetails.address,
-            city: shippingDetails.city,
-            pincode: shippingDetails.pincode,
-            items: order.items,
-            total: order.total,
-            payment: order.payment,
-            status: 'Processing',
-            trackingId: '',
-            inventoryDeducted: false,
-            createdAt: fsServerTimestamp(),
-            updatedAt: fsServerTimestamp()
+            address: shippingDetails.address, city: shippingDetails.city, pincode: shippingDetails.pincode,
+            items: order.items, total: order.total, payment: order.payment,
+            status: 'Processing', trackingId: '', inventoryDeducted: false,
+            createdAt: fsServerTimestamp(), updatedAt: fsServerTimestamp()
         });
-
-        // Mark as synced in localStorage so syncPendingOrders skips it
         _markSynced(order.id, shippingDetails.email);
-
-        // Upsert customer record using email as doc ID (no read needed)
-        const customerDocId = shippingDetails.email.replace(/[^a-zA-Z0-9]/g, '_');
-        const customerDocRef = fireDb.collection('customers').doc(customerDocId);
-        await customerDocRef.set({
-            name:  (shippingDetails.firstname + ' ' + shippingDetails.lastname).trim(),
-            email: shippingDetails.email,
-            phone: shippingDetails.phone || '',
-            createdAt: fsServerTimestamp()
-        }, { merge: true });
-        // Increment counts separately so they don't reset on merge
-        await customerDocRef.update({
-            orderCount: fsIncrement(1),
-            totalSpent: fsIncrement(order.total)
-        });
-    } catch (err) {
-        console.error('Firebase order save error:', err);
-        // Will be retried automatically by syncPendingOrders on next page load
-    }
+        const cid  = shippingDetails.email.replace(/[^a-zA-Z0-9]/g, '_');
+        const cRef = fireDb.collection('customers').doc(cid);
+        await cRef.set({ name: (shippingDetails.firstname + ' ' + shippingDetails.lastname).trim(), email: shippingDetails.email, phone: shippingDetails.phone || '', createdAt: fsServerTimestamp() }, { merge: true });
+        await cRef.update({ orderCount: fsIncrement(1), totalSpent: fsIncrement(order.total) });
+    } catch (err) { console.error('[order] Save error:', err); }
 }
 
-// ===== Auto-sync: push any unsynced localStorage orders to Firestore =====
+// ===== Sync pending localStorage orders =====
 async function syncPendingOrders(userEmail, userName, userPhone) {
-    if (!userEmail) { console.log('[sync] No email provided'); return; }
-    if (!window.fireDb) { console.log('[sync] Firebase not ready yet'); return; }
-    
+    if (!userEmail) return;
+    if (!window.fireDb && !(window.ssaApi && window.ssaApi.enabled)) return;
     const key = 'ssa_orders_' + userEmail;
     let orders;
-    try { orders = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { console.warn('[sync] Parse error:', e); return; }
-    
+    try { orders = JSON.parse(localStorage.getItem(key) || '[]'); } catch { return; }
     const pending = orders.filter(o => !o._synced);
-    console.log(`[sync] Found ${orders.length} total orders, ${pending.length} unsynced for ${userEmail}`);
-    if (!pending.length) { console.log('[sync] No pending orders'); return; }
-
-    await _ensureAuth();
+    if (!pending.length) return;
 
     let changed = false;
-    let synced = 0, skipped = 0, failed = 0;
-    
     for (const order of pending) {
         try {
-            // Avoid duplicates: check if already in Firestore
-            const existing = await fireDb.collection('orders').where('orderId', '==', order.id).get();
-            if (!existing.empty) {
-                console.log(`[sync] Order ${order.id} already in Firestore, skipping`);
-                order._synced = true; changed = true; skipped++; continue;
+            if (window.ssaApi && window.ssaApi.enabled) {
+                await window.ssaApi.postOrder({ orderId: order.id, customerName: userName, customerEmail: userEmail, customerPhone: userPhone, items: order.items, total: order.total, payment: order.payment || 'COD', address: '', city: '', pincode: '' });
+            } else {
+                await _ensureAuth();
+                const exists = await fireDb.collection('orders').where('orderId', '==', order.id).get();
+                if (!exists.empty) { order._synced = true; changed = true; continue; }
+                await fireDb.collection('orders').add({ orderId: order.id, customerName: userName, customerEmail: userEmail, customerPhone: userPhone, address: '', city: '', pincode: '', items: order.items, total: order.total, payment: order.payment || 'COD', status: order.status || 'Processing', trackingId: '', inventoryDeducted: false, createdAt: fsServerTimestamp(), updatedAt: fsServerTimestamp() });
             }
-            // Push to Firestore
-            console.log(`[sync] Pushing order ${order.id}...`);
-            await fireDb.collection('orders').add({
-                orderId:       order.id,
-                customerName:  userName  || '',
-                customerEmail: userEmail,
-                customerPhone: userPhone || '',
-                address: '', city: '', pincode: '',
-                items:   order.items  || [],
-                total:   order.total  || 0,
-                payment: order.payment || 'COD',
-                status:  order.status  || 'Processing',
-                trackingId: '',
-                inventoryDeducted: false,
-                createdAt: fsServerTimestamp(),
-                updatedAt: fsServerTimestamp()
-            });
-            // Deduct inventory for synced offline order — removed (admin manages stock status manually)
-            console.log(`[sync] ✓ Order ${order.id} synced`);
-            order._synced = true; changed = true; synced++;
-        } catch (e) {
-            console.error(`[sync] ✗ Failed to sync ${order.id}:`, e.message);
-            failed++;
-        }
+            order._synced = true; changed = true;
+        } catch (e) { console.warn('[sync] failed:', order.id, e.message); }
     }
-    
     if (changed) {
-        // Write back with _synced flags
         const all = JSON.parse(localStorage.getItem(key) || '[]');
-        for (const p of pending) {
-            const idx = all.findIndex(o => o.id === p.id);
-            if (idx !== -1) all[idx]._synced = p._synced;
-        }
+        for (const p of pending) { const idx = all.findIndex(o => o.id === p.id); if (idx !== -1) all[idx]._synced = p._synced; }
         localStorage.setItem(key, JSON.stringify(all));
     }
-    
-    console.log(`[sync] Complete: ${synced} synced, ${skipped} skipped, ${failed} failed`);
 }
 
-// ===== Save Customer Registration to Firestore =====
+// ===== Save Customer Registration =====
 async function saveCustomerToFirebase(customerData) {
     try {
-        if (!window.fireDb) { console.log('[customer] Firebase not ready'); return; }
+        if (window.ssaApi && window.ssaApi.enabled) { await window.ssaApi.postCustomer(customerData); return; }
+        if (!window.fireDb) return;
         await _ensureAuth();
-        const fullName = ((customerData.firstName || '') + ' ' + (customerData.lastName || '')).trim();
-        // Use email as document ID (URL-safe) — prevents duplicates without needing a read
         const docId = customerData.email.replace(/[^a-zA-Z0-9]/g, '_');
-        const docRef = fireDb.collection('customers').doc(docId);
-        console.log('[customer] Saving customer doc:', docId);
-        await docRef.set({
-            name:       fullName,
-            email:      customerData.email,
-            phone:      customerData.phone || '',
-            orderCount: 0,
-            totalSpent: 0,
-            createdAt:  fsServerTimestamp()
-        }, { merge: true }); // merge: won't overwrite if doc already exists
-        console.log('[customer] ✓ Customer saved to Firestore');
-    } catch (err) {
-        console.error('[customer] ✗ Save failed:', err.message || err);
-    }
+        await fireDb.collection('customers').doc(docId).set({ name: ((customerData.firstName || '') + ' ' + (customerData.lastName || '')).trim(), email: customerData.email, phone: customerData.phone || '', orderCount: 0, totalSpent: 0, createdAt: fsServerTimestamp() }, { merge: true });
+    } catch (err) { console.error('[customer] Save error:', err.message); }
 }
 
-// Expose to global scope
-window.saveOrderToFirebase   = saveOrderToFirebase;
+window.saveOrderToFirebase    = saveOrderToFirebase;
 window.saveCustomerToFirebase = saveCustomerToFirebase;
 window.syncPendingOrders      = syncPendingOrders;
 
-// ===== Out-of-Stock awareness for the customer-facing frontend =====
-// Fetches all inventory docs, builds out-of-stock/low-stock maps by status field.
-// Falls back to quantity field for older docs that haven't been migrated.
+// ===== Inventory stock status =====
+// Priority: 1. sessionStorage cache  2. Backend API  3. Direct Firestore
 async function loadOutOfStockData() {
-    try {
-        if (!window.fireDb) return;
-        const snap = await window.fireDb.collection('inventory').get();
-        const outMap = {}, lowMap = {};
+    const CACHE_KEY = '_ssa_inv_status_v1';
+    const CACHE_TTL = 120000;
 
-        snap.docs.forEach(d => {
-            const { productName, size, status, quantity } = d.data();
-            if (!productName || !size) return;
-            // Effective status: prefer explicit status field, fall back to quantity
-            let st = status;
-            if (!st) st = (quantity === 0) ? 'out_of_stock' : (quantity > 0 && quantity <= 10) ? 'low_stock' : 'in_stock';
-            if (st === 'out_of_stock') {
-                if (!outMap[productName]) outMap[productName] = new Set();
-                outMap[productName].add(size);
-            } else if (st === 'low_stock') {
-                if (!lowMap[productName]) lowMap[productName] = new Set();
-                lowMap[productName].add(size);
+    // 1. sessionStorage hit — zero network/Firestore reads
+    try {
+        const raw = sessionStorage.getItem(CACHE_KEY);
+        if (raw) {
+            const { d, e } = JSON.parse(raw);
+            if (Date.now() < e) {
+                console.log('[stock] sessionStorage HIT');
+                _applyStockMaps(_reviveSets(d.outMap), _reviveSets(d.lowMap));
+                return;
             }
+            sessionStorage.removeItem(CACHE_KEY);
+        }
+    } catch { }
+
+    try {
+        let invList = null;
+
+        // 2. Backend API
+        if (window.ssaApi && window.ssaApi.enabled) {
+            try { invList = await window.ssaApi.getInventoryStatus(); console.log('[stock] API:', invList.length, 'items'); }
+            catch (e) { console.warn('[stock] API failed, using Firestore:', e.message); }
+        }
+
+        // 3. Direct Firestore
+        if (!invList) {
+            if (!window.fireDb) return;
+            const snap = await window.fireDb.collection('inventory').get();
+            invList = snap.docs.map(d => {
+                const { productName, size, status, quantity } = d.data();
+                const st = status || (quantity === 0 ? 'out_of_stock' : quantity <= 10 ? 'low_stock' : 'in_stock');
+                return { productName, size, status: st };
+            });
+            console.log('[stock] Firestore:', invList.length, 'items');
+        }
+
+        const outMap = {}, lowMap = {};
+        invList.forEach(({ productName, size, status }) => {
+            if (!productName || !size) return;
+            if (status === 'out_of_stock') { (outMap[productName] = outMap[productName] || new Set()).add(size); }
+            else if (status === 'low_stock')  { (lowMap[productName]  = lowMap[productName]  || new Set()).add(size); }
         });
 
-        window.outOfStockMap = outMap;
-        window.lowStockMap   = lowMap;
+        // Save to sessionStorage as serialisable arrays
+        try {
+            const ser = { outMap: {}, lowMap: {} };
+            Object.entries(outMap).forEach(([k, s]) => ser.outMap[k] = [...s]);
+            Object.entries(lowMap).forEach(([k, s]) => ser.lowMap[k]  = [...s]);
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ d: ser, e: Date.now() + CACHE_TTL }));
+        } catch { }
 
-        if (window.productsData) {
-            window.productsData.forEach(p => {
-                const outSizes = outMap[p.name];
-                const lowSizes = lowMap[p.name];
-                p.outOfStockSizes = outSizes ? [...outSizes] : [];
-                p.lowStockSizes   = lowSizes ? [...lowSizes] : [];
-                p.outOfStock = outSizes ? p.sizes.every(s => outSizes.has(s)) : false;
-                p.lowStock   = !p.outOfStock && (lowSizes ? p.sizes.some(s => lowSizes.has(s)) : false);
-            });
-        }
-        if (typeof window.renderProducts === 'function') {
-            window.renderProducts(window.currentFilter || 'all', window.displayedProducts || 12, window._currentGender, window._currentSleeve);
-        }
-        console.log('[stock] Loaded:', Object.keys(outMap).length, 'out-of-stock,', Object.keys(lowMap).length, 'low-stock products');
-    } catch (e) {
-        console.warn('[stock] Could not load stock data:', e.message);
-    }
+        _applyStockMaps(outMap, lowMap);
+    } catch (e) { console.warn('[stock] Could not load:', e.message); }
 }
-// Auto-load when Firebase is ready
+
+function _reviveSets(obj) {
+    const m = {};
+    Object.entries(obj || {}).forEach(([k, v]) => m[k] = new Set(v));
+    return m;
+}
+
+function _applyStockMaps(outMap, lowMap) {
+    window.outOfStockMap = outMap;
+    window.lowStockMap   = lowMap;
+    if (window.productsData) {
+        window.productsData.forEach(p => {
+            const o = outMap[p.name], l = lowMap[p.name];
+            p.outOfStockSizes = o ? [...o] : [];
+            p.lowStockSizes   = l ? [...l] : [];
+            p.outOfStock = o ? p.sizes.every(s => o.has(s)) : false;
+            p.lowStock   = !p.outOfStock && (l ? p.sizes.some(s => l.has(s)) : false);
+        });
+    }
+    if (typeof window.renderProducts === 'function') {
+        window.renderProducts(window.currentFilter || 'all', window.displayedProducts || 12, window._currentGender, window._currentSleeve);
+    }
+    console.log('[stock] Applied — out:', Object.keys(outMap).length, 'low:', Object.keys(lowMap).length);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const wait = setInterval(() => {
         if (window._firebaseReady && window.fireDb) { clearInterval(wait); loadOutOfStockData(); }
     }, 400);
 });
 window.loadOutOfStockData = loadOutOfStockData;
-
