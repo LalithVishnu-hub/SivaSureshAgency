@@ -5,6 +5,7 @@
 // ===== Save Order to Firestore =====
 async function saveOrderToFirebase(order, shippingDetails) {
     try {
+        if (!window.fireDb) throw new Error('Firebase not initialised');
         await fireDb.collection('orders').add({
             orderId: order.id,
             customerName: shippingDetails.firstname + ' ' + shippingDetails.lastname,
@@ -44,6 +45,10 @@ async function saveOrderToFirebase(order, shippingDetails) {
         }
     } catch (err) {
         console.error('Firebase order save error:', err);
+        // Show a non-blocking warning so the user knows the order may not appear in admin
+        if (err.code === 'permission-denied' || err.message.includes('permission')) {
+            setTimeout(() => alert('Your order was placed but could not be synced to the server.\nPlease contact us to confirm your order: ' + (order.id || '')), 500);
+        }
     }
 }
 

@@ -81,7 +81,7 @@ async function loadDashboard() {
 
         document.getElementById('statTotalOrders').textContent = totalOrders;
         document.getElementById('statPending').textContent = pending;
-        document.getElementById('statRevenue').textContent = 'â‚¹' + revenue.toLocaleString();
+        document.getElementById('statRevenue').textContent = '\\u20b9' + revenue.toLocaleString();
         document.getElementById('statCustomers').textContent = customers;
 
         // Recent orders
@@ -93,7 +93,7 @@ async function loadDashboard() {
                     <span>${o.customerName || 'Guest'}</span>
                 </div>
                 <div class="list-item-right">
-                    <span class="amount">â‚¹${(o.total || 0).toLocaleString()}</span>
+                    <span class="amount">\\u20b9${(o.total || 0).toLocaleString()}</span>
                     <span class="status-badge ${(o.status || '').toLowerCase()}">${o.status}</span>
                 </div>
             </div>
@@ -122,12 +122,22 @@ async function loadDashboard() {
 
 // ===== Orders =====
 async function loadOrders() {
+    const tbody = document.getElementById('ordersTableBody');
     try {
-        const snap = await db.collection('orders').orderBy('createdAt', 'desc').get();
+        let snap;
+        try {
+            snap = await db.collection('orders').orderBy('createdAt', 'desc').get();
+        } catch (e) {
+            // Fallback: load without ordering if index missing
+            snap = await db.collection('orders').get();
+        }
         allOrders = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        // Sort client-side
+        allOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         renderOrders();
     } catch (err) {
         console.error('Orders error:', err);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty" style="color:red">Failed to load orders. Check Firestore security rules.<br><small>' + err.message + '</small></td></tr>';
     }
 }
 
@@ -144,7 +154,7 @@ function renderOrders() {
             <td><strong>#${o.orderId || o.docId.slice(0, 8)}</strong></td>
             <td>${o.customerName || 'Guest'}<br><small>${o.customerEmail || ''}</small></td>
             <td>${(o.items || []).length} item(s)</td>
-            <td><strong>â‚¹${(o.total || 0).toLocaleString()}</strong></td>
+            <td><strong>\\u20b9${(o.total || 0).toLocaleString()}</strong></td>
             <td><span class="status-badge ${(o.status || '').toLowerCase()}">${o.status}</span></td>
             <td>${o.createdAt ? new Date(o.createdAt.seconds * 1000).toLocaleDateString('en-IN') : 'N/A'}</td>
             <td>
@@ -191,13 +201,13 @@ async function viewOrder(docId) {
                 <h5><i class="fas fa-box"></i> Items</h5>
                 <table class="od-items">
                     <tr><th>Product</th><th>Size</th><th>Color</th><th>Qty</th><th>Price</th></tr>
-                    ${(o.items || []).map(i => `<tr><td>${i.name}</td><td>${i.selectedSize || '-'}</td><td>${i.selectedColor || '-'}</td><td>${i.qty}</td><td>â‚¹${i.price * i.qty}</td></tr>`).join('')}
+                    ${(o.items || []).map(i => `<tr><td>${i.name}</td><td>${i.selectedSize || '-'}</td><td>${i.selectedColor || '-'}</td><td>${i.qty}</td><td>\\u20b9${i.price * i.qty}</td></tr>`).join('')}
                 </table>
             </div>
             <div class="od-section">
                 <h5><i class="fas fa-rupee-sign"></i> Payment</h5>
                 <p>Method: <strong>${o.payment || 'COD'}</strong></p>
-                <p>Total: <strong>â‚¹${(o.total || 0).toLocaleString()}</strong></p>
+                <p>Total: <strong>\\u20b9${(o.total || 0).toLocaleString()}</strong></p>
             </div>
             ${o.trackingId ? `<div class="od-section"><h5><i class="fas fa-truck"></i> Tracking</h5><p>${o.trackingId}</p></div>` : ''}
             <div class="od-actions">
@@ -243,11 +253,34 @@ async function loadProducts() {
         if (allProducts.length === 0) {
             await autoSeedProducts();
         } else {
+            // Remove duplicates: keep first doc per name, delete extras
+            await deduplicateProducts();
             renderProducts();
         }
     } catch (err) {
         console.error('Products error:', err);
     }
+}
+
+async function deduplicateProducts() {
+    const seen = new Map(); // name -> docId of first seen
+    const toDelete = [];
+    for (const p of allProducts) {
+        if (seen.has(p.name)) {
+            toDelete.push(p.docId);
+        } else {
+            seen.set(p.name, p.docId);
+        }
+    }
+    if (toDelete.length === 0) return;
+    showAdminToast(`Removing ${toDelete.length} duplicate product(s)...`, 'info');
+    for (const docId of toDelete) {
+        try { await db.collection('products').doc(docId).delete(); } catch (e) { /* ignore */ }
+    }
+    // Rebuild allProducts without deleted docs
+    const deletedSet = new Set(toDelete);
+    allProducts = allProducts.filter(p => !deletedSet.has(p.docId));
+    showAdminToast(`Cleaned up ${toDelete.length} duplicate(s)`);
 }
 
 async function autoSeedProducts() {
@@ -297,7 +330,7 @@ function renderProducts() {
             <td><img src="${p.image || ''}" alt="" class="product-thumb"></td>
             <td><strong>${p.name}</strong></td>
             <td>${(p.category || '').replace(/-/g, ' ')}</td>
-            <td>â‚¹${p.price}</td>
+            <td>\\u20b9${p.price}</td>
             <td>${p.totalStock !== undefined ? p.totalStock : '-'}</td>
             <td><span class="status-badge ${p.totalStock > 0 ? 'approved' : 'cancelled'}">${p.totalStock > 0 ? 'In Stock' : 'Out of Stock'}</span></td>
             <td>
@@ -563,7 +596,7 @@ function renderCustomers() {
             <td>${c.email || ''}</td>
             <td>${c.phone || ''}</td>
             <td>${c.orderCount || 0}</td>
-            <td>â‚¹${(c.totalSpent || 0).toLocaleString()}</td>
+            <td>\\u20b9${(c.totalSpent || 0).toLocaleString()}</td>
             <td>${c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString('en-IN') : 'N/A'}</td>
         </tr>
     `).join('');
