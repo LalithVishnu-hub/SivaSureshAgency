@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/admin.css?v=10">
     <link rel="icon" type="image/jpeg" href="images/Images/SSA Logo.png">
 </head>
 <body>
@@ -97,28 +97,38 @@
                 <div class="stats-row">
                     <div class="stat-card blue">
                         <div class="stat-icon-wrap"><i class="fas fa-box"></i></div>
-                        <div class="stat-value" id="statTotalOrders">0</div>
-                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statTotalOrders">0</div>
+                            <div class="stat-label">Total Orders</div>
+                        </div>
                     </div>
                     <div class="stat-card orange">
                         <div class="stat-icon-wrap"><i class="fas fa-clock"></i></div>
-                        <div class="stat-value" id="statPending">0</div>
-                        <div class="stat-label">Pending Orders</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statPending">0</div>
+                            <div class="stat-label">Pending Orders</div>
+                        </div>
                     </div>
                     <div class="stat-card green">
                         <div class="stat-icon-wrap"><i class="fas fa-rupee-sign"></i></div>
-                        <div class="stat-value" id="statRevenue">â‚¹0</div>
-                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statRevenue">₹0</div>
+                            <div class="stat-label">Total Revenue</div>
+                        </div>
                     </div>
                     <div class="stat-card purple">
                         <div class="stat-icon-wrap"><i class="fas fa-users"></i></div>
-                        <div class="stat-value" id="statCustomers">0</div>
-                        <div class="stat-label">Customers</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statCustomers">0</div>
+                            <div class="stat-label">Customers</div>
+                        </div>
                     </div>
                     <div class="stat-card pink">
                         <div class="stat-icon-wrap"><i class="fas fa-envelope"></i></div>
-                        <div class="stat-value" id="statMessages">0</div>
-                        <div class="stat-label">New Messages</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statMessages">0</div>
+                            <div class="stat-label">New Messages</div>
+                        </div>
                     </div>
                 </div>
                 <div class="quick-actions">
@@ -129,11 +139,17 @@
                 </div>
                 <div class="dashboard-grid">
                     <div class="card">
-                        <div class="card-header"><h3>Recent Orders</h3></div>
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-alt"></i> Recent Orders</h3>
+                            <a href="#" class="card-action" onclick="navigateTo('orders');return false;">View All →</a>
+                        </div>
                         <div class="card-body" id="recentOrdersList"><p class="empty">Loading...</p></div>
                     </div>
                     <div class="card">
-                        <div class="card-header"><h3>Low Stock Alerts</h3></div>
+                        <div class="card-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Low Stock Alerts</h3>
+                            <a href="#" class="card-action" onclick="navigateTo('inventory');return false;">View All →</a>
+                        </div>
                         <div class="card-body" id="lowStockList"><p class="empty">Loading...</p></div>
                     </div>
                 </div>

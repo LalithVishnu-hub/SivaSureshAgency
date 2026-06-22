@@ -150,6 +150,230 @@ const productsData = [
 ];
 productsData.forEach(p => { if (!p.image) p.image = generateProductSVG(p); });
 
+// ===== Firestore Products Sync =====
+// Loads products from Firestore once per session and merges admin-set images/prices.
+// sessionStorage cache (10 min TTL) prevents repeated Firebase reads.
+(function _initProductSync() {
+    const CACHE_KEY = '_ssa_fs_products_v2';
+    const TTL = 10 * 60 * 1000; // 10 minutes
+
+    function _merge(fpList) {
+        if (!fpList || !fpList.length) return false;
+        let changed = false;
+        for (const fp of fpList) {
+            if (!fp.name) continue;
+            const local = productsData.find(p => p.name === fp.name);
+            if (local) {
+                // Overlay admin-editable fields (image, price, badge, description)
+                for (const f of ['image', 'price', 'oldPrice', 'badge', 'description']) {
+                    const val = fp[f];
+                    if (val !== undefined && val !== null && val !== '' && val !== local[f]) {
+                        local[f] = val;
+                        changed = true;
+                    }
+                }
+            } else {
+                // Brand-new product added via admin panel
+                const newP = {
+                    id: 10000 + productsData.length,
+                    name: fp.name,
+                    category: fp.category || 'hospital-linen',
+                    price: fp.price || 0,
+                    oldPrice: fp.oldPrice || null,
+                    gender: fp.gender || null,
+                    sleeve: fp.sleeve || null,
+                    sizes: fp.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
+                    description: fp.description || '',
+                    image: fp.image || '',
+                    badge: fp.badge || '',
+                    rating: 4.5, reviews: 0,
+                    _fromFirestore: true
+                };
+                if (!newP.image) newP.image = generateProductSVG(newP);
+                productsData.push(newP);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    function _rerender() {
+        const page = document.body && document.body.dataset.page;
+        if (page === 'categories') {
+            if (typeof renderProducts === 'function')
+                renderProducts(
+                    typeof currentFilter !== 'undefined' ? currentFilter : 'all',
+                    typeof displayedProducts !== 'undefined' ? displayedProducts : 12,
+                    window._currentGender, window._currentSleeve
+                );
+        } else if (page === 'home') {
+            const grid = document.getElementById('shopGrid') || document.getElementById('featuredGrid');
+            if (grid && typeof buildProductCard === 'function') {
+                const featured = productsData.filter(p => p.badge);
+                grid.innerHTML = featured.slice(0, 8).map(p => buildProductCard(p)).join('');
+            }
+        }
+    }
+
+    async function _sync() {
+        // 1. Check sessionStorage cache first (zero Firebase reads if hit)
+        try {
+            const raw = sessionStorage.getItem(CACHE_KEY);
+            if (raw) {
+                const { data, exp } = JSON.parse(raw);
+                if (Date.now() < exp) {
+                    if (_merge(data)) _rerender();
+                    return;
+                }
+            }
+        } catch (e) { /* ignore quota/parse errors */ }
+
+        // 2. Wait for Firebase REST DB (max 4 s)
+        for (let i = 0; i < 80; i++) {
+            if (window.db) break;
+            await new Promise(r => setTimeout(r, 50));
+        }
+        if (!window.db) return;
+
+        // 3. Fetch from Firestore — single read per session
+        try {
+            const snap = await window.db.collection('products').get();
+            const data = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+            try {
+                sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, exp: Date.now() + TTL }));
+            } catch (e) { /* storage full */ }
+            if (_merge(data)) _rerender();
+        } catch (e) {
+            console.warn('[products-sync] Firestore unavailable, using local data only.');
+        }
+    }
+
+    // Kick off after DOM is ready + short delay so Firebase scripts have loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(_sync, 400));
+    } else {
+        setTimeout(_sync, 400);
+    }
+})();
+
+// ===== Policy Modals (Privacy, Terms, Shipping) =====
+const _policyContent = {
+    privacy: {
+        title: 'Privacy Policy',
+        icon: 'shield-alt',
+        body: `<p class="pm-date">Last updated: June 2026</p>
+<h4>Information We Collect</h4>
+<p>We collect information you provide when placing orders: name, email address, phone number, and delivery address. Anonymous usage data may also be collected to improve our services.</p>
+<h4>How We Use Your Information</h4>
+<p>Your information is used solely to process orders, send order confirmations, and provide customer support. We do not sell or share your personal data with any third parties.</p>
+<h4>Data Security</h4>
+<p>All data is protected with industry-standard HTTPS encryption. We do not store payment card details — payments are processed by trusted payment gateways.</p>
+<h4>Cookies & Storage</h4>
+<p>We use browser localStorage for cart and wishlist persistence. No advertising or tracking cookies are placed on your device.</p>
+<h4>Your Rights</h4>
+<p>You may request deletion of your account data at any time by emailing us. We will remove your data within 7 business days.</p>
+<h4>Contact</h4>
+<p>For privacy concerns email <a href="mailto:sivasureshagency@gmail.com">sivasureshagency@gmail.com</a></p>`
+    },
+    terms: {
+        title: 'Terms of Service',
+        icon: 'file-contract',
+        body: `<p class="pm-date">Last updated: June 2026</p>
+<h4>Acceptance of Terms</h4>
+<p>By using the Siva Suresh Agency website you agree to these terms. If you disagree with any part, please discontinue use of our services.</p>
+<h4>Products & Pricing</h4>
+<p>All prices are in Indian Rupees (INR) and are inclusive of GST where applicable. We reserve the right to update prices without prior notice. Bulk order rates are negotiated separately.</p>
+<h4>Orders & Payment</h4>
+<p>Orders are confirmed only after successful payment verification. We accept UPI, credit/debit cards, and bank transfers for bulk orders. COD is available for select pin codes.</p>
+<h4>Custom Orders</h4>
+<p>Custom / embroidered orders require a confirmed specification sheet and 50% advance payment before production begins. Lead time: 10-15 business days.</p>
+<h4>Cancellations & Refunds</h4>
+<p>Orders can be cancelled within 24 hours of placement. Refunds are processed within 7 business days to the original payment method. Custom orders are non-cancellable after production starts.</p>
+<h4>Limitation of Liability</h4>
+<p>Siva Suresh Agency shall not be liable for any indirect, incidental, or consequential damages arising from the use of our products or services.</p>
+<h4>Contact</h4>
+<p>Questions? Email <a href="mailto:sivasureshagency@gmail.com">sivasureshagency@gmail.com</a></p>`
+    },
+    shipping: {
+        title: 'Shipping Policy',
+        icon: 'truck',
+        body: `<p class="pm-date">Last updated: June 2026</p>
+<h4>Free Shipping Threshold</h4>
+<p>All orders above ₹2,000 receive free Pan-India delivery. Orders below ₹2,000 incur a flat fee of ₹150.</p>
+<h4>Delivery Timelines</h4>
+<p>Standard orders: <strong>5–7 business days</strong>.<br>Bulk / custom orders: <strong>10–15 business days</strong> after design confirmation.<br>Express delivery is available at an additional cost — contact us for a quote.</p>
+<h4>Serviceable Areas</h4>
+<p>We deliver across all Indian states via trusted courier partners including DTDC, Delhivery, and Blue Dart. International shipping is available for bulk orders on request.</p>
+<h4>Order Tracking</h4>
+<p>Once your order is dispatched you will receive an SMS and email with your tracking ID. You can also find it in the <em>My Orders</em> section of your account.</p>
+<h4>Damaged / Lost Shipments</h4>
+<p>If your package arrives damaged or is reported lost in transit, contact us within <strong>48 hours</strong> with supporting photos. We will arrange a free replacement or full refund.</p>
+<h4>Returns</h4>
+<p>Custom/embroidered items are non-returnable unless defective. Standard items can be returned within 7 days in their original, unused condition. Return shipping is free for defective items.</p>
+<h4>Contact</h4>
+<p>Shipping queries: <a href="mailto:sivasureshagency@gmail.com">sivasureshagency@gmail.com</a> or <a href="tel:+919366640050">+91 93666 40050</a></p>`
+    }
+};
+
+function openPolicyModal(type) {
+    const c = _policyContent[type];
+    if (!c) return;
+    // Remove any existing policy modal
+    const old = document.getElementById('_policyModal');
+    if (old) old.remove();
+
+    const wrap = document.createElement('div');
+    wrap.id = '_policyModal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.style.cssText = [
+        'position:fixed', 'inset:0',
+        'background:rgba(15,23,42,0.68)',
+        'backdrop-filter:blur(6px)',
+        '-webkit-backdrop-filter:blur(6px)',
+        'z-index:99999',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'padding:16px',
+        'animation:_pmFadeIn .22s ease'
+    ].join(';');
+
+    wrap.innerHTML = `
+<style>
+@keyframes _pmFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes _pmSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+#_policyModal ._pm-box{background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 28px 72px rgba(0,0,0,.22);animation:_pmSlideUp .28s cubic-bezier(.34,1.56,.64,1)}
+#_policyModal ._pm-head{padding:17px 22px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;position:sticky;top:0}
+#_policyModal ._pm-title{font-size:1rem;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:9px;margin:0}
+#_policyModal ._pm-title i{color:#0d9488}
+#_policyModal ._pm-close{background:#f8fafc;border:1.5px solid #e2e8f0;width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s;color:#64748b;flex-shrink:0}
+#_policyModal ._pm-close:hover{background:#fee2e2;border-color:#fca5a5;color:#dc2626}
+#_policyModal ._pm-body{padding:22px 24px 28px;overflow-y:auto;line-height:1.78;font-size:.875rem;color:#374151;-webkit-overflow-scrolling:touch}
+#_policyModal ._pm-body .pm-date{color:#94a3b8;font-size:.78rem;margin-bottom:14px}
+#_policyModal ._pm-body h4{font-size:.9rem;font-weight:700;color:#0f172a;margin:18px 0 6px;display:flex;align-items:center;gap:6px}
+#_policyModal ._pm-body h4::before{content:'';display:inline-block;width:3px;height:14px;background:#0d9488;border-radius:2px;flex-shrink:0}
+#_policyModal ._pm-body p{margin-bottom:10px}
+#_policyModal ._pm-body a{color:#0d9488;font-weight:600;text-decoration:none}
+#_policyModal ._pm-body a:hover{text-decoration:underline}
+@media(max-width:480px){#_policyModal ._pm-body{padding:16px 18px 24px}}
+</style>
+<div class="_pm-box">
+  <div class="_pm-head">
+    <h2 class="_pm-title"><i class="fas fa-${c.icon}"></i> ${c.title}</h2>
+    <button class="_pm-close" onclick="document.getElementById('_policyModal').remove()" aria-label="Close">&times;</button>
+  </div>
+  <div class="_pm-body">${c.body}</div>
+</div>`;
+
+    wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+    document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') { wrap.remove(); document.removeEventListener('keydown', esc); }
+    }, { once: true });
+    document.body.appendChild(wrap);
+}
+window.openPolicyModal = openPolicyModal;
+
 // ===== State =====
 let cart = JSON.parse(localStorage.getItem('ssa_cart') || '[]');
 cart.forEach(item => { const p = productsData.find(x => x.id === item.id); if (p) item.image = p.image; });
