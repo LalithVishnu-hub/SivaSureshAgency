@@ -12,28 +12,42 @@
     <link rel="icon" type="image/jpeg" href="images/Images/SSA Logo.png">
 </head>
 <body>
-    <!-- Login Screen -->
+    <!-- Login Screen (Split Panel) -->
     <div id="loginScreen" class="login-screen">
-        <div class="login-card">
-            <div class="login-logo">
-                <img src="images/Images/SSA Logo.png" alt="SSA Logo" width="60">
-                <h1>Siva Suresh Agency</h1>
-                <p>Admin Panel</p>
+        <!-- Left Brand Panel -->
+        <div class="login-brand">
+            <img src="images/Images/SSA Logo.png" alt="SSA Logo" class="login-brand-logo">
+            <h1>Siva Suresh Agency</h1>
+            <p>Admin Dashboard</p>
+            <div class="login-stats">
+                <div class="ls-item"><div class="ls-num">500+</div><div class="ls-lbl">Hospitals</div></div>
+                <div class="ls-item"><div class="ls-num">50K+</div><div class="ls-lbl">Products</div></div>
+                <div class="ls-item"><div class="ls-num">15+</div><div class="ls-lbl">Years</div></div>
+                <div class="ls-item"><div class="ls-num">1K+</div><div class="ls-lbl">Clients</div></div>
             </div>
-            <form id="loginForm" onsubmit="handleAdminLogin(event)">
-                <div class="form-group">
-                    <label><i class="fas fa-envelope"></i> Email</label>
-                    <input type="email" id="adminEmail" placeholder="admin@sivasureshagency.com" required>
+        </div>
+        <!-- Right Form Panel -->
+        <div class="login-form-panel">
+            <div class="login-card">
+                <div class="login-card-header">
+                    <h2>Welcome Back</h2>
+                    <p>Sign in to manage your store</p>
                 </div>
-                <div class="form-group">
-                    <label><i class="fas fa-lock"></i> Password</label>
-                    <input type="password" id="adminPassword" placeholder="Enter password" required>
-                </div>
-                <button type="submit" class="btn-login" id="loginBtn">
-                    <i class="fas fa-sign-in-alt"></i> Sign In
-                </button>
-                <p class="login-error" id="loginError"></p>
-            </form>
+                <form id="loginForm" onsubmit="handleAdminLogin(event)">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="adminEmail" placeholder="admin@sivasureshagency.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="adminPassword" placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit" class="btn-login" id="loginBtn">
+                        <i class="fas fa-sign-in-alt"></i> Sign In to Dashboard
+                    </button>
+                    <p class="login-error" id="loginError"></p>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -42,12 +56,15 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <img src="images/Images/SSA Logo.png" alt="SSA" width="36">
-                <span>SSA Admin</span>
+                <img src="images/Images/SSA Logo.png" alt="SSA">
+                <div class="sidebar-header-text">
+                    <span>SSA Admin</span>
+                    <small>Siva Suresh Agency</small>
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-page="dashboard"><i class="fas fa-chart-line"></i> Dashboard</a>
-                <a href="#" class="nav-item" data-page="orders"><i class="fas fa-box"></i> Orders</a>
+                <a href="#" class="nav-item" data-page="orders"><i class="fas fa-box-open"></i> Orders</a>
                 <a href="#" class="nav-item" data-page="products"><i class="fas fa-tshirt"></i> Products</a>
                 <a href="#" class="nav-item" data-page="inventory"><i class="fas fa-warehouse"></i> Inventory</a>
                 <a href="#" class="nav-item" data-page="customers"><i class="fas fa-users"></i> Customers</a>

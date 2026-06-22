@@ -244,7 +244,7 @@ function initCommon() {
     }
 
     // Cart
-    document.getElementById('cartToggle').addEventListener('click', openCart);
+    document.getElementById('cartToggle').addEventListener('click', () => requireAuth(openCart));
     document.getElementById('cartClose').addEventListener('click', closeCart);
     document.getElementById('cartOverlay').addEventListener('click', closeCart);
     const checkoutBtn = document.getElementById('checkoutBtn');
@@ -280,6 +280,15 @@ function initCommon() {
         document.addEventListener('cartUpdated', syncMbnCart);
         syncMbnCart();
     }
+
+    // Gate wishlist & mobile cart behind auth
+    document.querySelectorAll('.wishlist-nav-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (!currentUser) { e.preventDefault(); openLoginModal(); showToast('Please sign in to view your wishlist'); }
+        });
+    });
+    const mbnCartBtn2 = document.getElementById('mbnCartBtn');
+    if (mbnCartBtn2) mbnCartBtn2.addEventListener('click', () => requireAuth(openCart));
 
     // Chatbot
     initChatbot();

@@ -174,7 +174,7 @@ async function loadDashboard() {
         const unreadMsgs = messagesSnap.docs.filter(d => !d.data().read).length;
         const invDocs    = invSnap.docs.map(d => d.data());
         const alerts     = invDocs.filter(i => { const st = i.status || (i.quantity === 0 ? 'out_of_stock' : i.quantity <= 10 ? 'low_stock' : 'in_stock'); return st !== 'in_stock'; })
-                                   .map(i => ({ productName: i.productName, size: i.size, color: i.color, status: i.status }));
+                                   .map(i => { const st = i.status || (i.quantity === 0 ? 'out_of_stock' : i.quantity <= 10 ? 'low_stock' : 'in_stock'); return { productName: i.productName, size: i.size, color: i.color, status: st }; });
         const recent     = orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 5);
 
         _renderDashboard(
