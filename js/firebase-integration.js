@@ -115,7 +115,12 @@ async function loadOutOfStockData() {
             const { d, e } = JSON.parse(raw);
             if (Date.now() < e) {
                 console.log('[stock] sessionStorage HIT');
-                _applyStockMaps(_reviveSets(d.outMap), _reviveSets(d.lowMap));
+                _applyStockMaps(
+                    _reviveSets(d.outMap),
+                    _reviveSets(d.lowMap),
+                    _reviveSets(d.outVariantMap),
+                    _reviveSets(d.lowVariantMap)
+                );
                 return;
             }
             sessionStorage.removeItem(CACHE_KEY);
@@ -136,29 +141,40 @@ async function loadOutOfStockData() {
             if (!window.fireDb) return;
             const snap = await window.fireDb.collection('inventory').get();
             invList = snap.docs.map(d => {
-                const { productName, size, status, quantity } = d.data();
+                const { productName, size, color, status, quantity } = d.data();
                 const st = status || (quantity === 0 ? 'out_of_stock' : quantity <= 10 ? 'low_stock' : 'in_stock');
-                return { productName, size, status: st };
+                return { productName, size, color, status: st };
             });
             console.log('[stock] Firestore:', invList.length, 'items');
         }
 
-        const outMap = {}, lowMap = {};
-        invList.forEach(({ productName, size, status }) => {
-            if (!productName || !size) return;
-            if (status === 'out_of_stock') { (outMap[productName] = outMap[productName] || new Set()).add(size); }
-            else if (status === 'low_stock')  { (lowMap[productName]  = lowMap[productName]  || new Set()).add(size); }
+        const outMap = {}, lowMap = {}, outVariantMap = {}, lowVariantMap = {};
+        invList.forEach(({ productName, size, color, status }) => {
+            const sizeKey = _normalizeSize(size);
+            const colorKey = _normalizeColor(color);
+            if (!productName || !sizeKey) return;
+            const variantKey = _variantKey(sizeKey, colorKey);
+            if (status === 'out_of_stock') {
+                (outMap[productName] = outMap[productName] || new Set()).add(sizeKey);
+                (outVariantMap[productName] = outVariantMap[productName] || new Set()).add(variantKey);
+            }
+            else if (status === 'low_stock') {
+                (lowMap[productName]  = lowMap[productName]  || new Set()).add(sizeKey);
+                (lowVariantMap[productName] = lowVariantMap[productName] || new Set()).add(variantKey);
+            }
         });
 
         // Save to sessionStorage as serialisable arrays
         try {
-            const ser = { outMap: {}, lowMap: {} };
+            const ser = { outMap: {}, lowMap: {}, outVariantMap: {}, lowVariantMap: {} };
             Object.entries(outMap).forEach(([k, s]) => ser.outMap[k] = [...s]);
             Object.entries(lowMap).forEach(([k, s]) => ser.lowMap[k]  = [...s]);
+            Object.entries(outVariantMap).forEach(([k, s]) => ser.outVariantMap[k] = [...s]);
+            Object.entries(lowVariantMap).forEach(([k, s]) => ser.lowVariantMap[k]  = [...s]);
             sessionStorage.setItem(CACHE_KEY, JSON.stringify({ d: ser, e: Date.now() + CACHE_TTL }));
         } catch { }
 
-        _applyStockMaps(outMap, lowMap);
+        _applyStockMaps(outMap, lowMap, outVariantMap, lowVariantMap);
     } catch (e) { console.warn('[stock] Could not load:', e.message); }
 }
 
@@ -168,16 +184,39 @@ function _reviveSets(obj) {
     return m;
 }
 
-function _applyStockMaps(outMap, lowMap) {
+function _normalizeSize(size) {
+    if (size === undefined || size === null) return '';
+    return String(size)
+        .trim()
+        .replace(/×/g, 'x')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+}
+
+function _normalizeColor(color) {
+    if (color === undefined || color === null) return '';
+    return String(color).trim().toLowerCase();
+}
+
+function _variantKey(sizeKey, colorKey) {
+    return `${sizeKey}::${colorKey || '*'}`;
+}
+
+function _applyStockMaps(outMap, lowMap, outVariantMap, lowVariantMap) {
     window.outOfStockMap = outMap;
     window.lowStockMap   = lowMap;
+    window.outOfStockVariantMap = outVariantMap || {};
+    window.lowStockVariantMap   = lowVariantMap || {};
     if (window.productsData) {
         window.productsData.forEach(p => {
             const o = outMap[p.name], l = lowMap[p.name];
             p.outOfStockSizes = o ? [...o] : [];
             p.lowStockSizes   = l ? [...l] : [];
-            p.outOfStock = o ? p.sizes.every(s => o.has(s)) : false;
-            p.lowStock   = !p.outOfStock && (l ? p.sizes.some(s => l.has(s)) : false);
+            const normalizedSizes = (p.sizes || []).map(_normalizeSize).filter(Boolean);
+            p.outOfStock = normalizedSizes.length
+                ? (!!o && normalizedSizes.every(s => o.has(s)))
+                : false;
+            p.lowStock   = !p.outOfStock && (!!l && normalizedSizes.some(s => l.has(s)));
         });
     }
     if (typeof window.renderProducts === 'function') {

@@ -23,7 +23,8 @@ Edit [js/backend-config.js](js/backend-config.js):
 
 ### 3. Data migration
 
-Copy old Firebase collections to Supabase tables:
+After moving to Supabase, historical Firebase data will not appear automatically.
+Run this one-time migration to copy old Firebase collections to Supabase tables:
 
 - `products` -> `products`
 - `inventory` -> `inventory`
@@ -31,7 +32,17 @@ Copy old Firebase collections to Supabase tables:
 - `customers` -> `customers`
 - `messages` -> `messages`
 
-Use CSV export/import or a one-time script.
+```powershell
+python tools/migrate_firebase_to_supabase.py \
+	--firebase-email admin@sivasureshagency.com \
+	--firebase-password "<your-firebase-password>" \
+	--supabase-url https://kyzlxhncnqahlpfhtoky.supabase.co \
+	--supabase-anon-key "<your-supabase-publishable-key>" \
+	--supabase-email admin@sivasureshagency.com \
+	--supabase-password "<your-supabase-password>"
+```
+
+This script uses upsert by `id`, so it is safe to rerun if needed.
 
 ### 4. Password reset
 
