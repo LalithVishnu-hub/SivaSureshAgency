@@ -809,7 +809,7 @@ function updateCardStockUI(cardEl) {
     } else if (state.isLow) {
         ensureBadge();
         if (badge) {
-            badge.textContent = state.hasAnyOut ? 'Out of Stock' : 'Low Stock';
+            badge.textContent = 'Low Stock';
             badge.style.background = '#f59e0b';
             badge.style.color = '#fff';
         }
@@ -1190,7 +1190,6 @@ async function handleForgotPasswordReset() {
         try {
             await window.auth.sendPasswordResetEmail(email);
             show('Password reset link sent to your email. Please check inbox/spam.', true);
-            setTimeout(() => backToLoginFromForgot(), 1000);
             return;
         } catch (e) {
             console.warn('[forgot] Email reset failed:', e.message);
