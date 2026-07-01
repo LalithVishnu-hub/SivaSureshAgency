@@ -1641,7 +1641,26 @@ section.section-alt { background: var(--bg-off); }
   margin-top: 0;
 }
 
-/* ── E30. Noscript warning style ───────────────────────────────── */
+/* ── OOS color swatch — diagonal strike ───────────────────────── */
+.pd-color-swatch.swatch-oos {
+  opacity: 0.45;
+  cursor: not-allowed;
+  position: relative;
+}
+.pd-color-swatch.swatch-oos::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 45%, #e11d48 45%, #e11d48 55%, transparent 55%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* ── OOS size button — strikethrough text ─────────────────────── */
+.pd-size-btn.is-oos {
+  text-decoration: line-through;
+  text-decoration-color: #e11d48;
+}
 .noscript-banner {
   background: #fef3c7;
   border-bottom: 2px solid #f59e0b;

@@ -986,7 +986,9 @@ function updateProductDetailVariantState(pid) {
         btn.classList.toggle('is-oos', oos);
         btn.style.opacity = oos ? '0.45' : '';
         btn.style.cursor = oos ? 'not-allowed' : '';
-        btn.title = oos ? 'Out of stock for selected variant' : '';
+        btn.title = oos ? 'Out of stock for this color' : '';
+        // Always reset text to just the size — removes any legacy "• OOS" baked-in text
+        btn.textContent = size;
     });
 
     let active = document.querySelector(`#pdSizes-${pid} .pd-size-btn.active:not(:disabled)`);
@@ -1134,11 +1136,24 @@ function openProductDetail(id) {
     const p = productsData.find(x => x.id === id); if (!p) return;
     const discount = Math.round((1 - p.price / p.oldPrice) * 100);
     const colors = getProductColors(p);
-    const defaultColor = colors ? colors[0].name : null;
+
+    // Auto-select the first color that has at least one available size
+    let defaultColorObj = colors ? colors[0] : null;
+    if (colors) {
+        const firstGoodColor = colors.find(c => (p.sizes || []).some(s => !isVariantOutOfStock(p, s, c.name)));
+        if (firstGoodColor) defaultColorObj = firstGoodColor;
+    }
+    const defaultColor = defaultColorObj ? defaultColorObj.name : null;
     const firstAvailableSize = (p.sizes || []).find(s => !isVariantOutOfStock(p, s, defaultColor));
-    const colorSection = colors ? `<div class="pd-color-section"><h4>Select Color</h4><div class="pd-color-swatches">${colors.map((c, i) => `<button class="pd-color-swatch${i === 0 ? ' active' : ''}" data-hex="${c.hex}" data-color-name="${c.name}" title="${c.name}" style="background:${c.hex}${c.hex === '#FFFFFF' ? ';border-color:#ccc' : ''}" onclick="selectDetailColor(this,${p.id})"></button>`).join('')}</div><span class="pd-color-name">${colors[0].name}</span></div>` : '';
+
+    const colorSection = colors ? `<div class="pd-color-section"><h4>Select Color</h4><div class="pd-color-swatches">${colors.map((c) => {
+        const isDefault = c.name === defaultColorObj?.name;
+        const allSizesOos = (p.sizes || []).every(s => isVariantOutOfStock(p, s, c.name));
+        return `<button class="pd-color-swatch${isDefault ? ' active' : ''}${allSizesOos ? ' swatch-oos' : ''}" data-hex="${c.hex}" data-color-name="${c.name}" title="${c.name}${allSizesOos ? ' (Out of Stock)' : ''}" style="background:${c.hex}${c.hex === '#FFFFFF' ? ';border-color:#ccc' : ''}" onclick="selectDetailColor(this,${p.id})"></button>`;
+    }).join('')}</div><span class="pd-color-name">${defaultColorObj?.name || ''}</span></div>` : '';
+
     const modal = document.getElementById('productDetailModal');
-    modal.innerHTML = `<div class="modal product-detail-modal"><button class="modal-close pd-close" onclick="closeProductDetail()"><i class="fas fa-times"></i></button><div class="pd-grid"><div class="pd-image"><img src="${p.image}" alt="${p.name}">${p.badge ? `<span class="pd-badge">${p.badge}</span>` : ''}</div><div class="pd-info"><span class="pd-category">${p.category.replace(/-/g,' ')}</span><h2 class="pd-title">${p.name}</h2><div class="pd-rating">${'<i class="fas fa-star"></i>'.repeat(Math.floor(p.rating))}<span>(${p.reviews} reviews)</span></div><div class="pd-price"><span class="pd-current-price">₹${p.price}</span><span class="pd-old-price">₹${p.oldPrice}</span><span class="pd-discount">${discount}% OFF</span></div><p class="pd-description">${p.description}</p>${colorSection}<div class="pd-size-section"><h4>Select Size</h4><div class="pd-sizes" id="pdSizes-${p.id}">${p.sizes.map((s,i) => { const oos = isVariantOutOfStock(p, s, defaultColor); const active = firstAvailableSize ? (s === firstAvailableSize) : (i === 0); return `<button class="pd-size-btn ${active && !oos ? 'active' : ''}${oos ? ' is-oos' : ''}" data-size="${s}" ${oos ? 'disabled title="Out of stock"' : ''} onclick="selectSize(this,${p.id})">${s}</button>`; }).join('')}</div><p id="pdVariantStockMsg-${p.id}" style="display:none;color:#dc2626;font-size:0.85rem;margin-top:8px;"></p></div><div class="pd-qty-section"><h4>Quantity</h4><div class="pd-qty"><button onclick="changePdQty(-1)"><i class="fas fa-minus"></i></button><span id="pdQty">1</span><button onclick="changePdQty(1)"><i class="fas fa-plus"></i></button></div></div><div class="pd-actions"><button id="pdAddBtn-${p.id}" class="btn btn-primary btn-lg" onclick="addToCartFromDetail(${p.id})"><i class="fas fa-cart-plus"></i> Add to Cart</button><button id="pdBuyBtn-${p.id}" class="btn btn-outline-dark btn-lg" onclick="buyNowFromDetail(${p.id})"><i class="fas fa-bolt"></i> Buy Now</button></div><div class="pd-features"><div class="pd-feature"><i class="fas fa-truck"></i> Free delivery above ₹2000</div><div class="pd-feature"><i class="fas fa-undo"></i> 7-day returns</div><div class="pd-feature"><i class="fas fa-shield-alt"></i> Quality guaranteed</div></div></div></div></div>`;
+    modal.innerHTML = `<div class="modal product-detail-modal"><button class="modal-close pd-close" onclick="closeProductDetail()"><i class="fas fa-times"></i></button><div class="pd-grid"><div class="pd-image"><img src="${p.image}" alt="${p.name}">${p.badge ? `<span class="pd-badge">${p.badge}</span>` : ''}</div><div class="pd-info"><span class="pd-category">${p.category.replace(/-/g,' ')}</span><h2 class="pd-title">${p.name}</h2><div class="pd-rating">${'<i class="fas fa-star"></i>'.repeat(Math.floor(p.rating))}<span>(${p.reviews} reviews)</span></div><div class="pd-price"><span class="pd-current-price">\u20b9${p.price}</span><span class="pd-old-price">\u20b9${p.oldPrice}</span><span class="pd-discount">${discount}% OFF</span></div><p class="pd-description">${p.description}</p>${colorSection}<div class="pd-size-section"><h4>Select Size</h4><div class="pd-sizes" id="pdSizes-${p.id}">${p.sizes.map((s,i) => { const oos = isVariantOutOfStock(p, s, defaultColor); const active = firstAvailableSize ? (s === firstAvailableSize) : (!oos && i === 0); return `<button class="pd-size-btn${active ? ' active' : ''}${oos ? ' is-oos' : ''}" data-size="${s}" ${oos ? 'disabled title="Out of stock for this color"' : ''} onclick="selectSize(this,${p.id})">${s}</button>`; }).join('')}</div><p id="pdVariantStockMsg-${p.id}" style="display:none;color:#dc2626;font-size:0.85rem;margin-top:8px;"></p></div><div class="pd-qty-section"><h4>Quantity</h4><div class="pd-qty"><button onclick="changePdQty(-1)"><i class="fas fa-minus"></i></button><span id="pdQty">1</span><button onclick="changePdQty(1)"><i class="fas fa-plus"></i></button></div></div><div class="pd-actions"><button id="pdAddBtn-${p.id}" class="btn btn-primary btn-lg" onclick="addToCartFromDetail(${p.id})"><i class="fas fa-cart-plus"></i> Add to Cart</button><button id="pdBuyBtn-${p.id}" class="btn btn-outline-dark btn-lg" onclick="buyNowFromDetail(${p.id})"><i class="fas fa-bolt"></i> Buy Now</button></div><div class="pd-features"><div class="pd-feature"><i class="fas fa-truck"></i> Free delivery above \u20b92000</div><div class="pd-feature"><i class="fas fa-undo"></i> 7-day returns</div><div class="pd-feature"><i class="fas fa-shield-alt"></i> Quality guaranteed</div></div></div></div></div>`;
     modal.classList.add('active'); pdQuantity = 1;
     updateProductDetailVariantState(p.id);
 }
