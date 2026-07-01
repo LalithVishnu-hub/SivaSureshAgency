@@ -260,7 +260,9 @@ console.log('[backend-init] Starting Supabase initialization...');
             if (error) throw new Error(error.message || 'Password update failed');
         },
         sendPasswordResetEmail: async (email) => {
-            const redirectTo = window.location.origin + window.location.pathname;
+            const _path = window.location.pathname;
+            const _base = _path.endsWith('/') ? _path : _path.replace(/[^/]+$/, '');
+            const redirectTo = window.location.origin + _base;
             const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
             if (error) throw new Error(error.message || 'Reset email failed');
         },
