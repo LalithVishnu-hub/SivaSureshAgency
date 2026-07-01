@@ -736,7 +736,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--primary); outli
 /* Move all direct children of hero-content that belong to text into hero-text */
 .hero-prod-img { flex-shrink: 0; width: 380px; display: flex; align-items: flex-end; justify-content: center; position: relative; padding-top: 60px; padding-bottom: 20px; }
 .hero-prod-img img { height: 460px; width: auto; max-width: 100%; object-fit: contain; filter: drop-shadow(0 24px 48px rgba(0,0,0,0.4)); animation: hero-float 4s ease-in-out infinite; border-radius: 6px; }
-.hero-prod-label { position: absolute; background: rgba(15,23,42,0.56); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.34); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.35); padding: 8px 14px; border-radius: 50px; font-size: 0.77rem; font-weight: 700; display: flex; align-items: center; gap: 7px; white-space: nowrap; box-shadow: 0 10px 24px rgba(0,0,0,0.24); }
+.hero-prod-label { position: absolute; background: rgba(15,23,42,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1.5px solid rgba(255,255,255,0.5); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 50px; font-size: 0.79rem; font-weight: 800; display: flex; align-items: center; gap: 7px; white-space: nowrap; box-shadow: 0 12px 28px rgba(0,0,0,0.34); }
 .hero-prod-label.lbl-top { top: 72px; right: -8px; }
 .hero-prod-label.lbl-bottom { bottom: 52px; left: -20px; }
 .hero-prod-label i { color: #5eead4; }
