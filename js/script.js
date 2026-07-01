@@ -1419,8 +1419,9 @@ function buildInvoiceHtml(order) {
     <style>
         :root{--teal:#0d9488;--navy:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;}
         *{box-sizing:border-box;}
+        *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
         body{font-family:'Segoe UI',Arial,sans-serif;color:var(--navy);margin:0;background:#eef2f7;padding:24px;}
-        .sheet{max-width:980px;margin:0 auto;background:#fff;border:1px solid #dbe4ee;border-radius:18px;overflow:hidden;box-shadow:0 20px 48px rgba(15,23,42,0.12);}
+        .sheet{max-width:860px;margin:0 auto;background:#fff;border:1px solid #dbe4ee;border-radius:18px;overflow:hidden;box-shadow:0 20px 48px rgba(15,23,42,0.12);}
         .hero{display:flex;justify-content:space-between;gap:20px;padding:22px 26px;background:linear-gradient(135deg,#0f172a 0%,#0d9488 100%);color:#fff;}
         .brand{display:flex;align-items:flex-start;gap:14px;}
         .logo{width:58px;height:58px;border-radius:12px;background:#fff;padding:6px;object-fit:contain;}
@@ -1452,7 +1453,16 @@ function buildInvoiceHtml(order) {
             .grid{grid-template-columns:1fr;}
             .totals{width:100%;}
         }
-        @media print { body{background:#fff;padding:0;} .sheet{box-shadow:none;border:none;border-radius:0;} }
+        @page { size: A4; margin: 10mm; }
+        @media print {
+            body{background:#fff !important;padding:0 !important;}
+            .sheet{width:190mm;max-width:190mm;margin:0 auto;box-shadow:none;border:1px solid #dbe4ee;border-radius:0;}
+            .hero{padding:14px 18px;}
+            .body{padding:14px 18px 18px;}
+            th,td{padding:8px 10px;font-size:12.5px;}
+            .totals{width:86mm;}
+            .foot{font-size:11px;}
+        }
     </style>
 </head>
 <body>
