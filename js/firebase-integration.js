@@ -136,17 +136,25 @@ async function loadOutOfStockData() {
             catch (e) { console.warn('[stock] API failed, using Firestore:', e.message); }
         }
 
-        // 3. Direct Firestore
-        if (!invList) {
-            if (!window.fireDb) return;
-            const snap = await window.fireDb.collection('inventory').get();
-            invList = snap.docs.map(d => {
-                const { productName, size, color, status, quantity } = d.data();
-                const st = status || (quantity === 0 ? 'out_of_stock' : quantity <= 10 ? 'low_stock' : 'in_stock');
-                return { productName, size, color, status: st };
-            });
-            console.log('[stock] Firestore:', invList.length, 'items');
+        // 3. Direct database read (preferred for variant-level color status and fresher updates)
+        if (window.fireDb) {
+            try {
+                const snap = await window.fireDb.collection('inventory').get();
+                const detailed = snap.docs.map(d => {
+                    const { productName, size, color, status, quantity } = d.data();
+                    const st = _normalizeInvStatus(status) || (quantity === 0 ? 'out_of_stock' : quantity <= 10 ? 'low_stock' : 'in_stock');
+                    return { productName, size, color, status: st };
+                });
+                if (detailed.length) {
+                    invList = detailed;
+                    console.log('[stock] Firestore:', invList.length, 'items');
+                }
+            } catch (e) {
+                console.warn('[stock] Firestore read failed:', e.message);
+            }
         }
+
+        if (!invList) return;
 
         const outMap = {}, lowMap = {}, outVariantMap = {}, lowVariantMap = {};
         invList.forEach(({ productName, size, color, status }) => {
@@ -154,11 +162,12 @@ async function loadOutOfStockData() {
             const colorKey = _normalizeColor(color);
             if (!productName || !sizeKey) return;
             const variantKey = _variantKey(sizeKey, colorKey);
-            if (status === 'out_of_stock') {
+            const st = _normalizeInvStatus(status);
+            if (st === 'out_of_stock') {
                 (outMap[productName] = outMap[productName] || new Set()).add(sizeKey);
                 (outVariantMap[productName] = outVariantMap[productName] || new Set()).add(variantKey);
             }
-            else if (status === 'low_stock') {
+            else if (st === 'low_stock') {
                 (lowMap[productName]  = lowMap[productName]  || new Set()).add(sizeKey);
                 (lowVariantMap[productName] = lowVariantMap[productName] || new Set()).add(variantKey);
             }
@@ -200,6 +209,15 @@ function _normalizeColor(color) {
 
 function _variantKey(sizeKey, colorKey) {
     return `${sizeKey}::${colorKey || '*'}`;
+}
+
+function _normalizeInvStatus(status) {
+    if (!status) return '';
+    const s = String(status).trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (s === 'outofstock') return 'out_of_stock';
+    if (s === 'lowstock') return 'low_stock';
+    if (s === 'instock') return 'in_stock';
+    return s;
 }
 
 function _applyStockMaps(outMap, lowMap, outVariantMap, lowVariantMap) {

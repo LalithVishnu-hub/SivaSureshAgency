@@ -673,8 +673,10 @@ function buildProductCard(p) {
         ${colors.map((c, i) => `<button class="color-swatch${i === 0 ? ' active' : ''}" data-hex="${c.hex}" data-color-name="${c.name}" title="${c.name}" style="background:${c.hex}${c.hex === '#FFFFFF' ? ';border-color:#ccc' : ''}" onclick="selectCardColor(this)"></button>`).join('')}
         <span class="color-name">${colors[0].name}</span>
     </div>` : '';
-    const isOut = p.outOfStock === true;
-    const isLow = !isOut && p.lowStock === true;
+    const defaultColor = colors?.[0]?.name || '';
+    const cardState = getCardStockState(p, defaultColor);
+    const isOut = cardState.isOut;
+    const isLow = !isOut && cardState.isLow;
     const outBadge = isOut
         ? `<span class="shop-card-badge" style="background:#ef4444;color:#fff">Out of Stock</span>`
         : isLow
@@ -717,6 +719,7 @@ function renderProducts(filter = 'all', count = 12, gender = null, sleeve = null
     const grid = document.getElementById('shopGrid');
     if (!grid) return;
     grid.innerHTML = toShow.map(p => buildProductCard(p)).join('');
+    grid.querySelectorAll('.shop-card').forEach(updateCardStockUI);
 
     const info = document.getElementById('shopResultsInfo');
     if (info) info.textContent = `Showing ${toShow.length} of ${filtered.length} products`;
@@ -745,8 +748,80 @@ function isVariantOutOfStock(product, size, color) {
     const vKey = variantKey(size, color);
     const vWildcard = variantKey(size, '');
     if (outVariants && (outVariants.has(vKey) || outVariants.has(vWildcard))) return true;
+    if (outVariants && color) return false;
     const outSizes = window.outOfStockMap?.[product.name];
     return !!(outSizes && outSizes.has(normalizeSizeKey(size)));
+}
+
+function getCardStockState(product, color) {
+    if (!product) return { isOut: false, isLow: false };
+    const sizes = product.sizes || [];
+    if (!sizes.length) return { isOut: !!product.outOfStock, isLow: !!product.lowStock };
+
+    const outCount = sizes.filter(s => isVariantOutOfStock(product, s, color)).length;
+    const isOut = outCount === sizes.length;
+    const isLow = !isOut && outCount > 0;
+
+    return { isOut, isLow };
+}
+
+function updateCardStockUI(cardEl) {
+    if (!cardEl) return;
+    const productId = Number(cardEl.dataset.id);
+    const product = productsData.find(p => p.id === productId);
+    if (!product) return;
+
+    const selectedColorBtn = cardEl.querySelector('.color-swatch.active');
+    const selectedColor = selectedColorBtn?.dataset.colorName || getProductColors(product)?.[0]?.name || '';
+    const state = getCardStockState(product, selectedColor);
+
+    const badge = cardEl.querySelector('.shop-card-badge');
+    if (state.isOut) {
+        if (badge) {
+            badge.textContent = 'Out of Stock';
+            badge.style.background = '#ef4444';
+            badge.style.color = '#fff';
+        }
+        cardEl.classList.add('out-of-stock-card');
+        cardEl.classList.remove('low-stock-card');
+    } else if (state.isLow) {
+        if (badge) {
+            badge.textContent = 'Variant OOS';
+            badge.style.background = '#f59e0b';
+            badge.style.color = '#fff';
+        }
+        cardEl.classList.add('low-stock-card');
+        cardEl.classList.remove('out-of-stock-card');
+    } else {
+        if (badge && (!product.badge || badge.textContent === 'Out of Stock' || badge.textContent === 'Variant OOS' || badge.textContent === 'Low Stock')) {
+            if (product.badge) {
+                badge.textContent = product.badge;
+                badge.style.background = '';
+                badge.style.color = '';
+            } else {
+                badge.remove();
+            }
+        }
+        cardEl.classList.remove('out-of-stock-card', 'low-stock-card');
+    }
+
+    const addBtn = cardEl.querySelector('.shop-card-footer .btn-primary');
+    const buyBtn = cardEl.querySelector('.shop-card-footer .btn-outline-dark');
+    const quickBtn = cardEl.querySelector('.shop-card-quick .btn-primary');
+    const disable = state.isOut;
+
+    if (addBtn) {
+        addBtn.disabled = disable;
+        addBtn.style.opacity = disable ? '0.45' : '';
+        addBtn.style.cursor = disable ? 'not-allowed' : '';
+        addBtn.innerHTML = disable ? '<i class="fas fa-ban"></i> Out of Stock' : '<i class="fas fa-cart-plus"></i> Add';
+    }
+    if (buyBtn) buyBtn.style.display = disable ? 'none' : '';
+    if (quickBtn) {
+        quickBtn.disabled = disable;
+        quickBtn.style.opacity = disable ? '0.5' : '';
+        quickBtn.innerHTML = disable ? '<i class="fas fa-ban"></i> Out of Stock' : '<i class="fas fa-cart-plus"></i> Add';
+    }
 }
 
 function updateProductDetailVariantState(pid) {
@@ -805,9 +880,10 @@ function addToCart(id) {
     requireAuth(() => {
         const product = productsData.find(p => p.id === id);
         if (!product) return;
-        if (product.outOfStock) { showToast('Sorry, this product is currently out of stock!'); return; }
+        const card = document.querySelector(`.shop-card[data-id="${id}"]`);
+        const selectedColor = card?.querySelector('.color-swatch.active')?.dataset.colorName || getProductColors(product)?.[0]?.name || null;
         const colors = getProductColors(product);
-        const defaultColor = colors ? colors[0].name : null;
+        const defaultColor = selectedColor || (colors ? colors[0].name : null);
         const availableSize = (product.sizes || []).find(s => !isVariantOutOfStock(product, s, defaultColor));
         if (!availableSize) { showToast('This variant is currently out of stock!'); return; }
         const existing = cart.find(item => item.id === id);
@@ -1021,10 +1097,8 @@ function openLoginModal() {
             <p class="auth-subtitle" style="margin-bottom:16px;">Verify with email and phone to set a new password</p>
             <div class="form-group"><label>Email</label><input type="email" id="fpEmail" placeholder="Registered email"></div>
             <div class="form-group"><label>Phone</label><input type="tel" id="fpPhone" placeholder="Registered phone"></div>
-            <div class="form-group"><label>New Password</label><input type="password" id="fpNewPassword" placeholder="Min 6 characters"></div>
-            <div class="form-group"><label>Confirm Password</label><input type="password" id="fpConfirmPassword" placeholder="Confirm new password"></div>
             <p id="fpMsg" style="display:none;font-size:0.82rem;margin-bottom:8px;"></p>
-            <button class="btn btn-gradient btn-full" style="margin-top:4px;" onclick="handleForgotPasswordReset()"><i class="fas fa-key"></i> Reset Password</button>
+            <button class="btn btn-gradient btn-full" style="margin-top:4px;" onclick="handleForgotPasswordReset()"><i class="fas fa-paper-plane"></i> Send Reset Link</button>
             <p class="auth-switch">Remembered password? <a onclick="backToLoginFromForgot()">Back to sign in</a></p>
         </div>
   </div>
@@ -1062,39 +1136,35 @@ function backToLoginFromForgot() {
 async function handleForgotPasswordReset() {
     const email = document.getElementById('fpEmail')?.value.trim();
     const phone = document.getElementById('fpPhone')?.value.trim();
-    const newPwd = document.getElementById('fpNewPassword')?.value;
-    const confirm = document.getElementById('fpConfirmPassword')?.value;
     const msg = document.getElementById('fpMsg');
     if (!msg) return;
     const show = (text, ok) => { msg.textContent = text; msg.style.color = ok ? '#10b981' : '#ef4444'; msg.style.display = 'block'; };
 
-    if (!email || !phone || !newPwd || !confirm) { show('Please fill all fields'); return; }
-    if (newPwd.length < 6) { show('Password must be at least 6 characters'); return; }
-    if (newPwd !== confirm) { show('Passwords do not match'); return; }
+    if (!email || !phone) { show('Please enter email and phone number'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { show('Please enter a valid email'); return; }
 
-    // Primary flow: secure email reset via backend auth provider
+    // Verify phone against known profile data before sending reset link.
+    const users = JSON.parse(localStorage.getItem('ssa_users') || '[]');
+    const localUser = users.find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+    if (localUser && String(localUser.phone || '').trim() !== String(phone).trim()) {
+        show('Phone number does not match this account');
+        return;
+    }
+
+    // Secure flow: send reset link by email via auth provider.
     if (window.auth && typeof window.auth.sendPasswordResetEmail === 'function') {
         try {
             await window.auth.sendPasswordResetEmail(email);
-            show('Reset link sent to your email. Open mail and set a new password.', true);
+            show('Password reset link sent to your email. Please check inbox/spam.', true);
+            setTimeout(() => backToLoginFromForgot(), 1000);
             return;
         } catch (e) {
-            console.warn('[forgot] Email reset failed, falling back:', e.message);
+            console.warn('[forgot] Email reset failed:', e.message);
+            show('Unable to send reset email now. Please try again in a minute.');
+            return;
         }
     }
-
-    // Legacy fallback: local profile verification (no email delivery)
-    const users = JSON.parse(localStorage.getItem('ssa_users') || '[]');
-    const idx = users.findIndex(u => u.email === email && String(u.phone || '') === String(phone));
-    if (idx === -1) { show('Account not found with this email and phone'); return; }
-
-    users[idx].password = newPwd;
-    users[idx].passwordUpdatedAt = new Date().toISOString();
-    localStorage.setItem('ssa_users', JSON.stringify(users));
-    show('Password reset successful. Please sign in.', true);
-    const loginEmail = document.getElementById('loginEmail');
-    if (loginEmail) loginEmail.value = email;
-    setTimeout(() => backToLoginFromForgot(), 700);
+    show('Reset email is temporarily unavailable. Please contact support.');
 }
 
 function _upsertLocalUserProfile(profile) {
@@ -1778,6 +1848,8 @@ function selectCardColor(btn) {
     btn.classList.add('active');
     const label = swatches.querySelector('.color-name');
     if (label) label.textContent = btn.dataset.colorName;
+    const card = btn.closest('.shop-card');
+    if (card) updateCardStockUI(card);
 }
 
 function selectDetailColor(btn) {
