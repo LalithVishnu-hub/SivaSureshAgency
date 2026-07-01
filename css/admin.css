@@ -525,6 +525,39 @@ img{max-width:100%;display:block;}
   flex-shrink:0;
 }
 
+/* ── Dashboard Analytics Strip ────────────────────────── */
+.analytics-strip{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:18px;
+}
+.analytic-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px 14px;
+  box-shadow:var(--shadow);
+}
+.analytic-label{
+  display:block;
+  font-size:0.72rem;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:0.4px;
+  margin-bottom:6px;
+  font-weight:700;
+}
+.analytic-card strong{
+  font-size:1.02rem;
+  color:var(--navy);
+  font-weight:800;
+  display:block;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
 /* ── Dashboard Grid ───────────────────────────────────── */
 .dashboard-grid{
   display:grid;
@@ -616,6 +649,7 @@ img{max-width:100%;display:block;}
 }
 .status-badge.processing {background:#fef9c3;color:#854d0e;}
 .status-badge.approved   {background:#dcfce7;color:#14532d;}
+.status-badge.packed     {background:#ede9fe;color:#5b21b6;}
 .status-badge.shipped    {background:#dbeafe;color:#1e3a8a;}
 .status-badge.delivered  {background:#d1fae5;color:#064e3b;}
 .status-badge.cancelled  {background:#fee2e2;color:#7f1d1d;}
@@ -1041,6 +1075,7 @@ img{max-width:100%;display:block;}
   .od-actions{flex-direction:column;}
   .login-brand{display:none;}
   .login-form-panel{padding:30px 22px;}
+  .analytics-strip{grid-template-columns:1fr;}
   .page{padding:14px 16px;}
 }
 @media(max-width:480px){

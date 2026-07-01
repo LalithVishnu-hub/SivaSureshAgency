@@ -160,6 +160,12 @@ async function loadDashboard() {
             try {
                 const d = await window.ssaApi.adminDashboard();
                 _renderDashboard(d.totalOrders, d.pending, d.revenue, d.customers, d.unreadMsgs, d.recentOrders || [], d.stockAlerts || []);
+                const aovEl = document.getElementById('statAov');
+                const repeatEl = document.getElementById('statRepeatRate');
+                const topEl = document.getElementById('statTopProduct');
+                if (aovEl) aovEl.textContent = d?.analytics?.aov ? ('\u20b9' + Number(d.analytics.aov).toLocaleString()) : '\u20b9-';
+                if (repeatEl) repeatEl.textContent = d?.analytics?.repeatRate ? (Number(d.analytics.repeatRate) + '%') : '-';
+                if (topEl) topEl.textContent = d?.analytics?.topProduct || '-';
                 return;
             } catch (e) { console.warn('[dashboard] API failed, using Firestore:', e.message); }
         }
@@ -186,6 +192,36 @@ async function loadDashboard() {
             recent,
             alerts
         );
+
+        const nonCancelled = orders.filter(o => o.status !== 'Cancelled');
+        const aov = nonCancelled.length ? Math.round(nonCancelled.reduce((s, o) => s + (o.total || 0), 0) / nonCancelled.length) : 0;
+        const byEmail = new Map();
+        for (const o of nonCancelled) {
+            const key = (o.customerEmail || '').trim().toLowerCase();
+            if (!key) continue;
+            byEmail.set(key, (byEmail.get(key) || 0) + 1);
+        }
+        const repeatCount = [...byEmail.values()].filter(c => c > 1).length;
+        const repeatRate = byEmail.size ? Math.round((repeatCount / byEmail.size) * 100) : 0;
+        const productQty = new Map();
+        for (const o of nonCancelled) {
+            for (const item of (o.items || [])) {
+                const name = item.name || 'Unknown';
+                productQty.set(name, (productQty.get(name) || 0) + (item.qty || 0));
+            }
+        }
+        let topProduct = '-';
+        let topQty = 0;
+        for (const [name, qty] of productQty.entries()) {
+            if (qty > topQty) { topQty = qty; topProduct = name; }
+        }
+
+        const aovEl = document.getElementById('statAov');
+        const repeatEl = document.getElementById('statRepeatRate');
+        const topEl = document.getElementById('statTopProduct');
+        if (aovEl) aovEl.textContent = '\u20b9' + aov.toLocaleString();
+        if (repeatEl) repeatEl.textContent = repeatRate + '%';
+        if (topEl) topEl.textContent = topProduct;
     } catch (err) { console.error('Dashboard error:', err); }
 }
 
@@ -261,6 +297,7 @@ function renderOrders() {
             <td>
                 <button class="btn-icon" onclick="viewOrder('${o.docId}')" title="View"><i class="fas fa-eye"></i></button>
                 <button class="btn-icon" onclick="editOrderModal('${o.docId}')" title="Edit Order"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon" onclick="printOrderInvoice('${o.docId}')" title="Invoice"><i class="fas fa-file-invoice"></i></button>
             </td>
         </tr>
     `).join('');
@@ -282,7 +319,7 @@ async function viewOrder(docId) {
     const o = allOrders.find(x => x.docId === docId);
     if (!o) return;
     const modal = document.getElementById('orderModalBody');
-    const statuses = ['Processing','Approved','Shipped','Delivered'];
+    const statuses = ['Processing','Approved','Packed','Shipped','Delivered'];
     const curIdx = statuses.indexOf(o.status);
     const timelineHTML = `
         <div class="order-timeline">
@@ -330,12 +367,14 @@ async function viewOrder(docId) {
                 <select id="orderStatusSelect" class="status-select">
                     <option value="Processing" ${o.status === 'Processing' ? 'selected' : ''}>Processing</option>
                     <option value="Approved" ${o.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                    <option value="Packed" ${o.status === 'Packed' ? 'selected' : ''}>Packed</option>
                     <option value="Shipped" ${o.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
                     <option value="Delivered" ${o.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
                     <option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
                 </select>
                 <input type="text" id="orderTracking" placeholder="Tracking ID (optional)" value="${o.trackingId || ''}" class="tracking-input">
                 <button class="btn-primary" onclick="saveOrderUpdate('${docId}')"><i class="fas fa-save"></i> Update</button>
+                <button class="btn-secondary" onclick="printOrderInvoice('${docId}')"><i class="fas fa-file-invoice"></i> Invoice</button>
             </div>
         </div>
     `;
@@ -795,6 +834,30 @@ function exportOrdersCSV() {
     showAdminToast('CSV downloaded!');
 }
 
+function printOrderInvoice(docId) {
+    const o = allOrders.find(x => x.docId === docId);
+    if (!o) { showAdminToast('Order not found', 'error'); return; }
+
+    const rows = (o.items || []).map(i => {
+        const qty = i.qty || 0;
+        const unit = i.price || 0;
+        const amount = qty * unit;
+        const variant = [i.selectedSize || null, i.selectedColor || null].filter(Boolean).join(' / ');
+        return `<tr><td>${i.name || 'Item'}${variant ? `<br><small style="color:#64748b;">${variant}</small>` : ''}</td><td style="text-align:center;">${qty}</td><td style="text-align:right;">&#8377;${unit.toLocaleString('en-IN')}</td><td style="text-align:right;">&#8377;${amount.toLocaleString('en-IN')}</td></tr>`;
+    }).join('');
+
+    const subtotal = (o.items || []).reduce((s, i) => s + ((i.qty || 0) * (i.price || 0)), 0);
+    const shippingCharge = Math.max(0, (o.total || 0) - subtotal);
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice ${o.orderId || docId}</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:26px;} .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;} .box{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px;} table{width:100%;border-collapse:collapse;} th,td{padding:10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top;} th{background:#f8fafc;text-align:left;} .tot{width:320px;margin-left:auto;margin-top:12px;} .tot div{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;} .tot .g{font-weight:700;font-size:15px;border-top:1px solid #cbd5e1;padding-top:9px;margin-top:4px;}</style></head><body><div class="top"><div><h2 style="margin:0;color:#0d9488;">Siva Suresh Agency</h2><p style="margin:6px 0 0;font-size:13px;color:#334155;">PVT Towers, 37/10, Selvam Nagar, Erode - 638011</p><p style="margin:2px 0 0;font-size:13px;color:#334155;">+91 93666 40060 | sivasureshagency@gmail.com</p></div><div><p><strong>Invoice No:</strong> ${o.orderId || docId.slice(0, 8)}</p><p><strong>Date:</strong> ${o.createdAt ? new Date(o.createdAt.seconds * 1000).toLocaleDateString('en-IN') : ''}</p><p><strong>Payment:</strong> ${o.payment || 'COD'}</p><p><strong>Status:</strong> ${o.status || 'Processing'}</p></div></div><div class="box"><p style="margin:0 0 6px;"><strong>Bill To</strong></p><p style="margin:2px 0;">${o.customerName || 'Guest'}</p><p style="margin:2px 0;">${o.customerEmail || ''}</p><p style="margin:2px 0;">${o.customerPhone || ''}</p><p style="margin:2px 0;">${[o.address, o.city, o.pincode].filter(Boolean).join(', ') || 'Address not provided'}</p></div><table><thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="tot"><div><span>Subtotal</span><span>&#8377;${subtotal.toLocaleString('en-IN')}</span></div><div><span>Shipping</span><span>&#8377;${shippingCharge.toLocaleString('en-IN')}</span></div><div class="g"><span>Total</span><span>&#8377;${(o.total || 0).toLocaleString('en-IN')}</span></div></div></body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) { showAdminToast('Popup blocked. Allow popups to print invoice.', 'error'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 250);
+}
+
 // ===== Deduplicate inventory (merge/delete extra copies per product+size+color) =====
 async function deduplicateInventory() {
     const btn = event?.target;
@@ -1190,6 +1253,7 @@ window.setInvFilter = setInvFilter;
 window.reconcileInventoryFromOrders = undefined; // removed — no longer qty-based
 window.deduplicateInventory = deduplicateInventory;
 window.exportOrdersCSV = exportOrdersCSV;
+window.printOrderInvoice = printOrderInvoice;
 window.updateInventoryStatus = updateInventoryStatus;
 window.openStockModal = openStockModal;
 window.saveStock = saveStock;

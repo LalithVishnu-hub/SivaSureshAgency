@@ -580,6 +580,9 @@ function initCommon() {
 
     updateWishlistCount();
 
+    // Ensure invoice action is available in success modal on all pages
+    ensureSuccessModalActions();
+
     // Init wishlist page if on it
     if (document.body.dataset.page === 'wishlist') initWishlistPage();
 }
@@ -988,7 +991,22 @@ async function openAccountPanel() {
         try {
             if (window.auth) { try { await window.auth.signInAnonymously(); } catch(e) {} }
             const snap = await fireDb.collection('orders').where('customerEmail', '==', currentUser.email).get();
-            firestoreOrders = snap.docs.map(d => ({ id: d.data().orderId, date: d.data().createdAt?.seconds ? new Date(d.data().createdAt.seconds*1000).toISOString() : new Date().toISOString(), items: d.data().items||[], total: d.data().total||0, payment: d.data().payment||'COD', status: d.data().status||'Processing' }));
+            firestoreOrders = snap.docs.map(d => ({
+                id: d.data().orderId,
+                date: d.data().createdAt?.seconds ? new Date(d.data().createdAt.seconds*1000).toISOString() : new Date().toISOString(),
+                items: d.data().items || [],
+                total: d.data().total || 0,
+                payment: d.data().payment || 'COD',
+                status: d.data().status || 'Processing',
+                shipping: {
+                    name: d.data().customerName || currentUser.name,
+                    email: d.data().customerEmail || currentUser.email,
+                    phone: d.data().customerPhone || currentUser.phone || '',
+                    address: d.data().address || '',
+                    city: d.data().city || '',
+                    pincode: d.data().pincode || ''
+                }
+            }));
         } catch(e) { console.warn('[account]', e.message); }
     }
     const localOrders = JSON.parse(localStorage.getItem('ssa_orders_' + currentUser.email) || '[]');
@@ -1023,10 +1041,17 @@ async function openAccountPanel() {
                     orders.map(o => `<div class="acct-order-card">
                         <div class="acct-order-head">
                             <div><span class="acct-order-id">#${o.id}</span><span class="acct-order-date">${new Date(o.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
-                            <span class="acct-order-status">${o.status}</span>
+                            <span class="acct-order-status ${(o.status || 'processing').toLowerCase()}">${o.status}</span>
                         </div>
                         <div class="acct-order-items">${o.items.map(i => `<div class="acct-order-row"><span>${i.name} &times;${i.qty}</span><span>&#8377;${i.price*i.qty}</span></div>`).join('')}</div>
-                        <div class="acct-order-foot"><span class="acct-order-total">Total: &#8377;${o.total.toLocaleString('en-IN')}</span><span class="acct-order-pay"><i class="fas fa-credit-card"></i> ${o.payment}</span></div>
+                        <div class="acct-order-foot">
+                            <span class="acct-order-total">Total: &#8377;${o.total.toLocaleString('en-IN')}</span>
+                            <span class="acct-order-pay"><i class="fas fa-credit-card"></i> ${o.payment}</span>
+                        </div>
+                        <div style="display:flex;gap:8px;padding:0 14px 12px;">
+                            <button class="btn btn-outline-dark btn-sm" style="flex:1;justify-content:center;" onclick="downloadInvoice('${o.id}')"><i class="fas fa-file-invoice"></i> Invoice</button>
+                            <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center;" onclick="reorderFromHistory('${o.id}')"><i class="fas fa-redo"></i> Reorder</button>
+                        </div>
                     </div>`).join('')}
             </div>
             <div class="acct-section" id="accountProfile" style="display:none;">
@@ -1162,16 +1187,149 @@ function changePassword() {
 }
 function handleLogout() { currentUser = null; localStorage.removeItem('ssa_user'); closeAuthModal(); updateAuthUI(); showToast('Logged out'); }
 
+function ensureSuccessModalActions() {
+        const modal = document.getElementById('successModal');
+        if (!modal) return;
+        const content = modal.querySelector('.success-content');
+        if (!content) return;
+        if (content.querySelector('.success-actions')) return;
+
+        const continueBtn = content.querySelector('button.btn.btn-gradient');
+        const actions = document.createElement('div');
+        actions.className = 'success-actions';
+        actions.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px;';
+        actions.innerHTML = '<button class="btn btn-outline-dark" onclick="downloadInvoice()"><i class="fas fa-file-invoice"></i> Download Invoice</button>';
+        if (continueBtn) {
+                continueBtn.style.marginTop = '8px';
+                continueBtn.parentNode.insertBefore(actions, continueBtn);
+        } else {
+                content.appendChild(actions);
+        }
+}
+
+function getOrderHistory() {
+        if (!currentUser || !currentUser.email) return [];
+        return JSON.parse(localStorage.getItem('ssa_orders_' + currentUser.email) || '[]');
+}
+
+function resolveOrderForInvoice(orderId) {
+        const history = getOrderHistory();
+        if (!history.length) return null;
+        if (orderId) return history.find(o => o.id === orderId) || null;
+        return history[0] || null;
+}
+
+function buildInvoiceHtml(order) {
+        const shipping = order.shipping || {};
+        const rows = (order.items || []).map(i => {
+                const qty = i.qty || 0;
+                const unit = i.price || 0;
+                const line = qty * unit;
+                const variant = [i.selectedSize || null, i.selectedColor || null].filter(Boolean).join(' / ');
+                return `<tr><td>${i.name || 'Item'}${variant ? `<br><small style="color:#64748b;">${variant}</small>` : ''}</td><td style="text-align:center;">${qty}</td><td style="text-align:right;">&#8377;${unit.toLocaleString('en-IN')}</td><td style="text-align:right;">&#8377;${line.toLocaleString('en-IN')}</td></tr>`;
+        }).join('');
+
+        const subtotal = (order.items || []).reduce((s, i) => s + ((i.qty || 0) * (i.price || 0)), 0);
+        const shippingCharge = Math.max(0, (order.total || 0) - subtotal);
+        const now = new Date();
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice ${order.id}</title>
+    <style>
+        body{font-family:Arial,sans-serif;color:#0f172a;margin:28px;}
+        .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;}
+        .brand h1{margin:0 0 6px;font-size:22px;color:#0d9488;}
+        .brand p,.meta p{margin:2px 0;font-size:13px;color:#334155;}
+        .box{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;}
+        table{width:100%;border-collapse:collapse;margin-top:8px;}
+        th,td{padding:10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top;}
+        th{background:#f8fafc;text-align:left;}
+        .totals{width:320px;margin-left:auto;margin-top:14px;}
+        .totals div{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;}
+        .totals .grand{font-weight:700;font-size:15px;border-top:1px solid #cbd5e1;margin-top:4px;padding-top:10px;}
+    </style>
+</head>
+<body>
+    <div class="top">
+        <div class="brand">
+            <h1>Siva Suresh Agency</h1>
+            <p>PVT Towers, 37/10, Selvam Nagar, Erode - 638011</p>
+            <p>Phone: +91 93666 40060 | Email: sivasureshagency@gmail.com</p>
+        </div>
+        <div class="meta">
+            <p><strong>Invoice No:</strong> ${order.id}</p>
+            <p><strong>Date:</strong> ${new Date(order.date || now.toISOString()).toLocaleDateString('en-IN')}</p>
+            <p><strong>Payment:</strong> ${order.payment || 'COD'}</p>
+            <p><strong>Status:</strong> ${order.status || 'Processing'}</p>
+        </div>
+    </div>
+
+    <div class="box">
+        <p><strong>Bill To</strong></p>
+        <p>${shipping.name || currentUser?.name || 'Customer'}</p>
+        <p>${shipping.email || currentUser?.email || ''}</p>
+        <p>${shipping.phone || currentUser?.phone || ''}</p>
+        <p>${[shipping.address, shipping.city, shipping.pincode].filter(Boolean).join(', ') || 'Address not provided'}</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Amount</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>
+
+    <div class="totals">
+        <div><span>Subtotal</span><span>&#8377;${subtotal.toLocaleString('en-IN')}</span></div>
+        <div><span>Shipping</span><span>&#8377;${shippingCharge.toLocaleString('en-IN')}</span></div>
+        <div class="grand"><span>Total</span><span>&#8377;${(order.total || 0).toLocaleString('en-IN')}</span></div>
+    </div>
+</body>
+</html>`;
+}
+
+function downloadInvoice(orderId) {
+        if (!currentUser) { showToast('Please login first'); return; }
+        const order = resolveOrderForInvoice(orderId || document.getElementById('orderId')?.textContent?.trim());
+        if (!order) { showToast('Invoice unavailable for this order'); return; }
+
+        const html = buildInvoiceHtml(order);
+        const w = window.open('', '_blank');
+        if (!w) { showToast('Popup blocked. Please allow popups.'); return; }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        setTimeout(() => w.print(), 300);
+}
+
+function reorderFromHistory(orderId) {
+        if (!currentUser) { showToast('Please login first'); return; }
+        const order = resolveOrderForInvoice(orderId);
+        if (!order || !order.items || !order.items.length) { showToast('Order items not found'); return; }
+
+        for (const item of order.items) {
+                const product = productsData.find(p => p.name === item.name);
+                if (!product) continue;
+                const existing = cart.find(c => c.id === product.id && c.selectedSize === item.selectedSize && c.selectedColor === item.selectedColor);
+                if (existing) existing.qty += (item.qty || 1);
+                else cart.push({ ...product, qty: item.qty || 1, selectedSize: item.selectedSize || product.sizes[0], selectedColor: item.selectedColor || getProductColors(product)?.[0]?.name || null });
+        }
+
+        saveCart();
+        updateCartUI();
+        closeAuthModal();
+        openCart();
+        showToast('Items added from previous order');
+}
+
 // ===== Place Order =====
 function placeOrder() {
     if (!currentUser) { document.getElementById('checkoutModal').classList.remove('active'); openLoginModal(); showToast('Please login first'); return; }
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     const pm = document.querySelector('[name="payment"]:checked');
-    const order = { id: 'SSA' + Date.now().toString(36).toUpperCase(), date: new Date().toISOString(), items: cart.map(i => ({ name: i.name, selectedSize: i.selectedSize, selectedColor: i.selectedColor || null, qty: i.qty, price: i.price })), total: total > 2000 ? total : total + 150, payment: pm ? pm.value.toUpperCase() : 'COD', status: 'Processing' };
-    const key = 'ssa_orders_' + currentUser.email;
-    const orders = JSON.parse(localStorage.getItem(key) || '[]');
-    orders.unshift(order); localStorage.setItem(key, JSON.stringify(orders));
-    // Save to Firebase
     const shipping = {
         firstname: document.querySelector('[name="firstname"]')?.value || '',
         lastname: document.querySelector('[name="lastname"]')?.value || '',
@@ -1181,6 +1339,27 @@ function placeOrder() {
         city: document.querySelector('[name="city"]')?.value || '',
         pincode: document.querySelector('[name="pincode"]')?.value || ''
     };
+
+    const order = {
+        id: 'SSA' + Date.now().toString(36).toUpperCase(),
+        date: new Date().toISOString(),
+        items: cart.map(i => ({ name: i.name, selectedSize: i.selectedSize, selectedColor: i.selectedColor || null, qty: i.qty, price: i.price })),
+        total: total > 2000 ? total : total + 150,
+        payment: pm ? pm.value.toUpperCase() : 'COD',
+        status: 'Processing',
+        shipping: {
+            name: (shipping.firstname + ' ' + shipping.lastname).trim(),
+            email: shipping.email,
+            phone: shipping.phone,
+            address: shipping.address,
+            city: shipping.city,
+            pincode: shipping.pincode
+        }
+    };
+    const key = 'ssa_orders_' + currentUser.email;
+    const orders = JSON.parse(localStorage.getItem(key) || '[]');
+    orders.unshift(order); localStorage.setItem(key, JSON.stringify(orders));
+    // Save to Firebase
     if (typeof saveOrderToFirebase === 'function') saveOrderToFirebase(order, shipping);
     document.getElementById('checkoutModal').classList.remove('active');
     document.getElementById('orderId').textContent = order.id;
@@ -1428,3 +1607,5 @@ window.removeFromWishlist = removeFromWishlist;
 window.clearWishlist = clearWishlist;
 window.toggleWishlist = toggleWishlist;
 window.isWishlisted = isWishlisted;
+window.downloadInvoice = downloadInvoice;
+window.reorderFromHistory = reorderFromHistory;
