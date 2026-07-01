@@ -909,6 +909,9 @@ function openLoginModal() {
         </div>
         <span class="field-error" id="loginPasswordError" style="display:none;"></span>
       </div>
+            <div style="text-align:right;margin-top:-2px;margin-bottom:10px;">
+                <a onclick="openForgotPasswordForm()" style="font-size:0.83rem;color:var(--primary);cursor:pointer;">Forgot password?</a>
+            </div>
       <button class="btn btn-gradient btn-full" style="margin-top:4px;" onclick="handleLogin()"><i class="fas fa-sign-in-alt"></i> Sign In</button>
       <p class="auth-switch">New here? <a onclick="switchAuthTab('register')">Create account</a></p>
     </div>
@@ -928,6 +931,17 @@ function openLoginModal() {
       <button class="btn btn-gradient btn-full" style="margin-top:4px;" onclick="handleRegister()"><i class="fas fa-user-plus"></i> Create Account</button>
       <p class="auth-switch">Already have an account? <a onclick="switchAuthTab('login')">Sign in</a></p>
     </div>
+        <div class="auth-form" id="forgotForm" style="display:none;">
+            <h3 style="margin-bottom:4px;">Reset Password</h3>
+            <p class="auth-subtitle" style="margin-bottom:16px;">Verify with email and phone to set a new password</p>
+            <div class="form-group"><label>Email</label><input type="email" id="fpEmail" placeholder="Registered email"></div>
+            <div class="form-group"><label>Phone</label><input type="tel" id="fpPhone" placeholder="Registered phone"></div>
+            <div class="form-group"><label>New Password</label><input type="password" id="fpNewPassword" placeholder="Min 6 characters"></div>
+            <div class="form-group"><label>Confirm Password</label><input type="password" id="fpConfirmPassword" placeholder="Confirm new password"></div>
+            <p id="fpMsg" style="display:none;font-size:0.82rem;margin-bottom:8px;"></p>
+            <button class="btn btn-gradient btn-full" style="margin-top:4px;" onclick="handleForgotPasswordReset()"><i class="fas fa-key"></i> Reset Password</button>
+            <p class="auth-switch">Remembered password? <a onclick="backToLoginFromForgot()">Back to sign in</a></p>
+        </div>
   </div>
 </div>`;
     modal.classList.add('active');
@@ -940,9 +954,50 @@ function togglePwdVis(inputId, btn) {
     else { input.type = 'password'; btn.innerHTML = '<i class="fas fa-eye"></i>'; }
 }
 function switchAuthTab(tab) {
+    const forgot = document.getElementById('forgotForm');
+    if (forgot) forgot.style.display = 'none';
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     if (tab === 'login') { document.getElementById('loginForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; document.querySelectorAll('.auth-tab')[0].classList.add('active'); }
     else { document.getElementById('loginForm').style.display = 'none'; document.getElementById('registerForm').style.display = 'block'; document.querySelectorAll('.auth-tab')[1].classList.add('active'); }
+}
+function openForgotPasswordForm() {
+    const tabs = document.querySelector('.auth-tabs');
+    if (tabs) tabs.style.display = 'none';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'block';
+    const msg = document.getElementById('fpMsg');
+    if (msg) msg.style.display = 'none';
+}
+function backToLoginFromForgot() {
+    const tabs = document.querySelector('.auth-tabs');
+    if (tabs) tabs.style.display = 'flex';
+    switchAuthTab('login');
+}
+function handleForgotPasswordReset() {
+    const email = document.getElementById('fpEmail')?.value.trim();
+    const phone = document.getElementById('fpPhone')?.value.trim();
+    const newPwd = document.getElementById('fpNewPassword')?.value;
+    const confirm = document.getElementById('fpConfirmPassword')?.value;
+    const msg = document.getElementById('fpMsg');
+    if (!msg) return;
+    const show = (text, ok) => { msg.textContent = text; msg.style.color = ok ? '#10b981' : '#ef4444'; msg.style.display = 'block'; };
+
+    if (!email || !phone || !newPwd || !confirm) { show('Please fill all fields'); return; }
+    if (newPwd.length < 6) { show('Password must be at least 6 characters'); return; }
+    if (newPwd !== confirm) { show('Passwords do not match'); return; }
+
+    const users = JSON.parse(localStorage.getItem('ssa_users') || '[]');
+    const idx = users.findIndex(u => u.email === email && String(u.phone || '') === String(phone));
+    if (idx === -1) { show('Account not found with this email and phone'); return; }
+
+    users[idx].password = newPwd;
+    users[idx].passwordUpdatedAt = new Date().toISOString();
+    localStorage.setItem('ssa_users', JSON.stringify(users));
+    show('Password reset successful. Please sign in.', true);
+    const loginEmail = document.getElementById('loginEmail');
+    if (loginEmail) loginEmail.value = email;
+    setTimeout(() => backToLoginFromForgot(), 700);
 }
 function handleLogin() {
     const email = document.getElementById('loginEmail').value.trim();
@@ -1694,6 +1749,9 @@ window.addToCartFromDetail = addToCartFromDetail;
 window.buyNowFromDetail = buyNowFromDetail;
 window.openLoginModal = openLoginModal;
 window.switchAuthTab = switchAuthTab;
+window.openForgotPasswordForm = openForgotPasswordForm;
+window.backToLoginFromForgot = backToLoginFromForgot;
+window.handleForgotPasswordReset = handleForgotPasswordReset;
 window.handleLogin = handleLogin;
 window.handleRegister = handleRegister;
 window.closeAuthModal = closeAuthModal;
