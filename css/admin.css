@@ -1084,3 +1084,311 @@ img{max-width:100%;display:block;}
   .modal-body{padding:16px;}
   .stat-value{font-size:1.5rem;}
 }
+
+/* ================================================================
+   SSA Admin v6 — Enhancement Block
+   ================================================================ */
+
+/* A1. Sidebar overlay backdrop */
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);z-index:199;}
+.sidebar-backdrop.active{display:block;}
+
+/* A2. Sidebar smooth mobile open */
+@media(max-width:768px){
+  .sidebar{transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);}
+  .sidebar.open{box-shadow:8px 0 32px rgba(0,0,0,0.28);}
+}
+
+/* A3. Topbar mobile */
+@media(max-width:768px){
+  .topbar{padding:0 14px;height:54px;}
+  .topbar-title p{display:none;}
+}
+
+/* A4. KPI card shimmer */
+.stat-card::before{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.08) 50%,transparent 70%);transform:translateX(-100%);pointer-events:none;z-index:1;}
+.stat-card:hover::before{transform:translateX(100%);transition:transform 0.6s ease;}
+
+/* A5. Table sticky header */
+.table-wrap{max-height:68vh;overflow-y:auto;}
+.data-table thead{position:sticky;top:0;z-index:2;}
+.data-table thead tr{background:linear-gradient(to right,#f0f9ff,#f0fdfa);}
+
+/* A6. Status badge dot */
+.status-badge::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;background:currentColor;opacity:0.6;vertical-align:1px;}
+
+/* A7. Quick action icon colors */
+.qa-btn:nth-child(1) .qa-icon{background:#f0fdf4;color:#16a34a;}
+.qa-btn:nth-child(2) .qa-icon{background:#eff6ff;color:#2563eb;}
+.qa-btn:nth-child(3) .qa-icon{background:#fff7ed;color:#ea580c;}
+.qa-btn:nth-child(4) .qa-icon{background:#fdf4ff;color:#9333ea;}
+
+/* A8. Login card entrance animation */
+.login-card{animation:loginSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both;}
+@keyframes loginSlideUp{from{opacity:0;transform:translateY(24px) scale(0.97);}to{opacity:1;transform:none;}}
+
+/* A9. Toast mobile positioning */
+@media(max-width:768px){.admin-toast{bottom:16px;right:12px;left:12px;max-width:none;font-size:0.82rem;}}
+
+/* A10. Modal bottom sheet on small phones */
+@media(max-width:480px){
+  .modal{max-width:100%;border-radius:20px 20px 0 0;}
+  .modal-overlay{align-items:flex-end;padding:0;}
+}
+
+/* A11. Filter group scrollable */
+@media(max-width:768px){
+  .filter-group{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
+  .filter-btn{flex-shrink:0;white-space:nowrap;}
+}
+
+/* A12. Nav item active glow */
+.nav-item.active{box-shadow:0 4px 16px rgba(13,148,136,0.28),inset 0 1px 0 rgba(255,255,255,0.08);}
+
+/* A13. Admin page transition */
+.page.active{animation:adminPageIn 0.28s ease both;}
+@keyframes adminPageIn{from{opacity:0;transform:translateX(8px);}to{opacity:1;transform:none;}}
+
+/* A14. Print styles */
+@media print{
+  .sidebar,.topbar,.page-toolbar,.admin-toast,.modal-overlay{display:none!important;}
+  .main-content{margin-left:0!important;}
+  .table-wrap{max-height:none;overflow:visible;}
+  body{font-size:12px;}
+}
+
+/* A15. Form focus accessibility */
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{box-shadow:0 0 0 3px rgba(13,148,136,0.14),inset 0 1px 3px rgba(0,0,0,0.04);}
+
+/* A16. Dashboard analytics strip mobile */
+@media(max-width:600px){.analytics-strip{grid-template-columns:1fr 1fr;}}
+
+/* A17. Topbar right hide view-site on tiny screens */
+@media(max-width:480px){.topbar-right .btn-view-site{display:none;}}
+
+/* ================================================================
+   SSA Admin v6 — Enhancement Block (appended)
+   Improvements: mobile sidebar overlay, animated topbar, improved
+   KPI cards, table row hover, toast positioning, dark mode base,
+   better stat cards on tablet, scrollable sidebar, print styles.
+   ================================================================ */
+
+/* ── A1. Sidebar overlay backdrop (mobile) ────────────────────── */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px);
+  z-index: 199;
+  transition: opacity 0.3s ease;
+}
+.sidebar-backdrop.active { display: block; }
+
+/* ── A2. Smooth sidebar open/close on mobile ──────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: none;
+  }
+  .sidebar.open {
+    box-shadow: 8px 0 32px rgba(0,0,0,0.28);
+  }
+}
+
+/* ── A3. Topbar — improved title area on mobile ───────────────── */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 14px;
+    height: 54px;
+  }
+  .topbar-title h2 { font-size: 0.92rem; }
+  .topbar-title p  { display: none; }
+  #pageTitle        { font-size: 0.92rem; }
+}
+
+/* ── A4. KPI stat cards — shimmer on hover ────────────────────── */
+.stat-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: default;
+}
+.stat-card:hover {
+  transform: translateY(-4px) scale(1.015);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+  transform: translateX(-100%);
+  pointer-events: none;
+  z-index: 1;
+}
+.stat-card:hover::before {
+  transform: translateX(100%);
+  transition: transform 0.6s ease;
+}
+
+/* ── A5. Table improvements ───────────────────────────────────── */
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+.data-table tbody tr:hover td {
+  color: var(--navy);
+}
+/* Sticky header for long tables */
+.table-wrap { max-height: 68vh; overflow-y: auto; }
+.data-table thead { position: sticky; top: 0; z-index: 2; }
+.data-table thead tr { background: linear-gradient(to right, #f0f9ff, #f0fdfa); }
+.data-table th { background: transparent; }
+
+/* ── A6. Status badge — dot indicator ────────────────────────── */
+.status-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 5px;
+  background: currentColor;
+  opacity: 0.6;
+  vertical-align: 1px;
+}
+
+/* ── A7. Card body — smooth scrollbar ────────────────────────── */
+.card-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.card-body::-webkit-scrollbar { width: 4px; }
+.card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── A8. Quick actions — icon color per type ──────────────────── */
+.qa-btn:nth-child(1) .qa-icon { background: #f0fdf4; color: #16a34a; }
+.qa-btn:nth-child(2) .qa-icon { background: #eff6ff; color: #2563eb; }
+.qa-btn:nth-child(3) .qa-icon { background: #fff7ed; color: #ea580c; }
+.qa-btn:nth-child(4) .qa-icon { background: #fdf4ff; color: #9333ea; }
+
+/* ── A9. Login screen — animated card entrance ────────────────── */
+.login-card {
+  animation: loginSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes loginSlideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── A10. Login brand panel — animated orb background ─────────── */
+.login-brand::before {
+  animation: orbFloat 6s ease-in-out infinite;
+}
+@keyframes orbFloat {
+  0%,100% { transform: translate(0,0); }
+  50%      { transform: translate(-20px, 20px); }
+}
+
+/* ── A11. Toast — moved up on mobile to avoid overlap ─────────── */
+@media (max-width: 768px) {
+  .admin-toast { bottom: 16px; right: 12px; left: 12px; max-width: none; font-size: 0.82rem; }
+}
+
+/* ── A12. Modal — full-screen on small phones ─────────────────── */
+@media (max-width: 480px) {
+  .modal {
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+  }
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+}
+
+/* ── A13. Page toolbar — pill filter buttons on mobile ──────────── */
+@media (max-width: 768px) {
+  .filter-group { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  .filter-btn   { flex-shrink: 0; white-space: nowrap; }
+}
+
+/* ── A14. Sidebar nav — active item smooth glow ──────────────── */
+.nav-item.active {
+  box-shadow: 0 4px 16px rgba(13,148,136,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ── A15. Admin panel page transitions ────────────────────────── */
+.page.active {
+  animation: adminPageIn 0.3s ease both;
+}
+@keyframes adminPageIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── A16. Inventory status chips — larger touch targets ─────────── */
+@media (max-width: 768px) {
+  .inv-status-select { padding: 8px 30px 8px 12px; font-size: 0.82rem; }
+}
+
+/* ── A17. Order timeline — responsive wrapping ─────────────────── */
+@media (max-width: 480px) {
+  .order-timeline { flex-wrap: wrap; gap: 16px; }
+  .order-timeline::before { display: none; }
+  .tl-step { flex-direction: row; flex: 0 0 calc(50% - 8px); justify-content: flex-start; }
+  .tl-label { text-align: left; }
+}
+
+/* ── A18. Scroll progress bar at top of admin ─────────────────── */
+.admin-scroll-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--primary), #5eead4);
+  z-index: 9999;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+/* ── A19. Empty state — better illustration ───────────────────── */
+.empty i {
+  opacity: 0.15;
+  transform: scale(1);
+  transition: transform 0.3s ease;
+}
+.empty:hover i {
+  transform: scale(1.08);
+  opacity: 0.22;
+}
+
+/* ── A20. Product form — image preview ────────────────────────── */
+.img-preview.show {
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(13,148,136,0.14);
+}
+
+/* ── A21. Topbar right — gap on all screen sizes ─────────────── */
+.topbar-right { gap: 6px; flex-wrap: nowrap; }
+@media (max-width: 480px) {
+  .topbar-right .btn-view-site { display: none; }
+}
+
+/* ── A22. Dashboard grid — better mobile stacking ────────────── */
+@media (max-width: 600px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .analytics-strip { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── A23. Print styles for orders table ───────────────────────── */
+@media print {
+  .sidebar, .topbar, .page-toolbar, .admin-toast, .modal-overlay { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .table-wrap { max-height: none; overflow: visible; }
+  body { font-size: 12px; }
+}
+
+/* ── A24. Form focus rings (admin accessibility) ──────────────── */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.14), inset 0 1px 3px rgba(0,0,0,0.04);
+}

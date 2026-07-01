@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <noscript><div class="noscript-banner">JavaScript is required to use this site. Please enable it in your browser settings.</div></noscript>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Siva Suresh Agency | Premium Hospital Linen & Uniforms</title>
@@ -10,8 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="css/style.css?v=20">
-    <link rel="icon" type="image/png" href="images/Images/SSA Logo.png">
-</head>
+    <link rel="icon" type="image/png" href="images/Images/SSA Logo.png">    <link rel="apple-touch-icon" href="images/Images/SSA Logo.png">
+    <meta name="theme-color" content="#0d9488">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"></head>
 <body data-page="home">
     <!-- Preloader -->
     <div id="preloader">
@@ -559,7 +563,15 @@
     </div>
 
     <!-- Back to Top -->
-    <button id="backToTop" class="back-to-top"><i class="fas fa-chevron-up"></i></button>
+    <button id="backToTop" class="back-to-top" aria-label="Back to top"><i class="fas fa-chevron-up"></i></button>
+    <!-- Mobile Bottom Nav -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+        <a href="index.html" class="mbn-item active" aria-label="Home"><i class="fas fa-home"></i><span>Home</span></a>
+        <a href="categories.html" class="mbn-item mbn-shop" aria-label="Shop"><span class="mbn-shop-wrap"><i class="fas fa-th-large"></i></span><span>Shop</span></a>
+        <button class="mbn-item" id="mbnCart" aria-label="Cart"><i class="fas fa-shopping-cart"></i><span class="mbn-badge" id="mbnCartCount" style="display:none">0</span><span>Cart</span></button>
+        <button class="mbn-item" id="mbnAuth" aria-label="Account"><i class="fas fa-user"></i><span>Account</span></button>
+        <a href="contact.html" class="mbn-item" aria-label="Contact"><i class="fas fa-phone-alt"></i><span>Contact</span></a>
+    </nav>
     <!-- WhatsApp Float -->
     <a href="https://wa.me/919366640050" class="whatsapp-float" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i></a>
 
