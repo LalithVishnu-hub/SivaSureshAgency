@@ -529,6 +529,9 @@ function initCommon() {
     // Hero Particles
     initHeroParticles();
 
+    // Mobile marquee auto-scroll needs duplicated chips for seamless loop
+    initMobileMarqueeAutoScroll();
+
     // Add stagger class to shop grids and category grids
     document.querySelectorAll('.shop-grid, .categories-grid, .testimonial-grid, .mv-grid, .team-grid').forEach(g => {
         g.classList.add('reveal-stagger');
@@ -1219,73 +1222,155 @@ function resolveOrderForInvoice(orderId) {
         return history[0] || null;
 }
 
+function _bestShippingForInvoice(order) {
+        const shipping = { ...(order.shipping || {}) };
+
+        // If order came from Firestore and lacks address fields, pull from local order copy
+        if (currentUser?.email) {
+                const local = getOrderHistory().find(o => o.id === order.id);
+                if (local?.shipping) {
+                        shipping.name = shipping.name || local.shipping.name;
+                        shipping.email = shipping.email || local.shipping.email;
+                        shipping.phone = shipping.phone || local.shipping.phone;
+                        shipping.address = shipping.address || local.shipping.address;
+                        shipping.city = shipping.city || local.shipping.city;
+                        shipping.pincode = shipping.pincode || local.shipping.pincode;
+                }
+        }
+
+        // Fallback to saved profile address
+        if (currentUser?.email && (!shipping.address || !shipping.city || !shipping.pincode)) {
+                const saved = JSON.parse(localStorage.getItem('ssa_addresses_' + currentUser.email) || '[]');
+                const primary = saved[0] || {};
+                shipping.address = shipping.address || primary.street || '';
+                shipping.city = shipping.city || primary.city || '';
+                shipping.pincode = shipping.pincode || primary.pincode || '';
+        }
+
+        // Final fallback to current user data
+        shipping.name = shipping.name || currentUser?.name || 'Customer';
+        shipping.email = shipping.email || currentUser?.email || '';
+        shipping.phone = shipping.phone || currentUser?.phone || '';
+
+        return shipping;
+}
+
 function buildInvoiceHtml(order) {
-        const shipping = order.shipping || {};
+        const shipping = _bestShippingForInvoice(order);
+        const logoUrl = new URL('images/Images/SSA Logo.png', window.location.href).href;
+        const invoiceDate = new Date(order.date || Date.now());
+        const dueDate = new Date(invoiceDate.getTime() + (2 * 24 * 60 * 60 * 1000));
         const rows = (order.items || []).map(i => {
                 const qty = i.qty || 0;
                 const unit = i.price || 0;
                 const line = qty * unit;
                 const variant = [i.selectedSize || null, i.selectedColor || null].filter(Boolean).join(' / ');
-                return `<tr><td>${i.name || 'Item'}${variant ? `<br><small style="color:#64748b;">${variant}</small>` : ''}</td><td style="text-align:center;">${qty}</td><td style="text-align:right;">&#8377;${unit.toLocaleString('en-IN')}</td><td style="text-align:right;">&#8377;${line.toLocaleString('en-IN')}</td></tr>`;
+                return `<tr><td>${i.name || 'Item'}${variant ? `<br><small class="variant">${variant}</small>` : ''}</td><td class="center">${qty}</td><td class="right">&#8377;${unit.toLocaleString('en-IN')}</td><td class="right">&#8377;${line.toLocaleString('en-IN')}</td></tr>`;
         }).join('');
 
         const subtotal = (order.items || []).reduce((s, i) => s + ((i.qty || 0) * (i.price || 0)), 0);
         const shippingCharge = Math.max(0, (order.total || 0) - subtotal);
-        const now = new Date();
+        const shippingLine = [shipping.address, shipping.city, shipping.pincode].filter(Boolean).join(', ');
 
         return `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice ${order.id}</title>
     <style>
-        body{font-family:Arial,sans-serif;color:#0f172a;margin:28px;}
-        .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;}
-        .brand h1{margin:0 0 6px;font-size:22px;color:#0d9488;}
-        .brand p,.meta p{margin:2px 0;font-size:13px;color:#334155;}
-        .box{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px;}
-        table{width:100%;border-collapse:collapse;margin-top:8px;}
-        th,td{padding:10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top;}
-        th{background:#f8fafc;text-align:left;}
-        .totals{width:320px;margin-left:auto;margin-top:14px;}
-        .totals div{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;}
-        .totals .grand{font-weight:700;font-size:15px;border-top:1px solid #cbd5e1;margin-top:4px;padding-top:10px;}
+        :root{--teal:#0d9488;--navy:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;}
+        *{box-sizing:border-box;}
+        body{font-family:'Segoe UI',Arial,sans-serif;color:var(--navy);margin:0;background:#eef2f7;padding:24px;}
+        .sheet{max-width:980px;margin:0 auto;background:#fff;border:1px solid #dbe4ee;border-radius:18px;overflow:hidden;box-shadow:0 20px 48px rgba(15,23,42,0.12);}
+        .hero{display:flex;justify-content:space-between;gap:20px;padding:22px 26px;background:linear-gradient(135deg,#0f172a 0%,#0d9488 100%);color:#fff;}
+        .brand{display:flex;align-items:flex-start;gap:14px;}
+        .logo{width:58px;height:58px;border-radius:12px;background:#fff;padding:6px;object-fit:contain;}
+        .brand h1{margin:0;font-size:26px;line-height:1.1;}
+        .brand p{margin:6px 0 0;font-size:12px;opacity:.9;line-height:1.6;}
+        .meta{min-width:245px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);padding:12px 14px;border-radius:12px;}
+        .meta p{margin:3px 0;font-size:13px;}
+        .body{padding:22px 26px 26px;}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+        .box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;}
+        .box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+        .box p{margin:2px 0 0;font-size:14px;line-height:1.6;}
+        table{width:100%;border-collapse:collapse;margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+        th,td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top;}
+        th{background:var(--bg);text-align:left;font-weight:700;color:#334155;}
+        .center{text-align:center;}
+        .right{text-align:right;}
+        .variant{color:var(--muted);font-size:12px;}
+        .totals{width:360px;margin-left:auto;margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--bg);}
+        .totals div{display:flex;justify-content:space-between;padding:7px 0;font-size:14px;}
+        .totals .grand{font-weight:800;font-size:17px;border-top:1px dashed #c7d2df;margin-top:3px;padding-top:10px;color:var(--navy);}
+        .foot{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;font-size:12px;color:var(--muted);}
+        .chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:#d1fae5;color:#065f46;}
+        @media (max-width:760px){
+            body{padding:10px;background:#fff;}
+            .sheet{border:none;box-shadow:none;}
+            .hero{flex-direction:column;padding:16px;}
+            .body{padding:16px;}
+            .grid{grid-template-columns:1fr;}
+            .totals{width:100%;}
+        }
+        @media print { body{background:#fff;padding:0;} .sheet{box-shadow:none;border:none;border-radius:0;} }
     </style>
 </head>
 <body>
-    <div class="top">
-        <div class="brand">
-            <h1>Siva Suresh Agency</h1>
-            <p>PVT Towers, 37/10, Selvam Nagar, Erode - 638011</p>
-            <p>Phone: +91 93666 40060 | Email: sivasureshagency@gmail.com</p>
+    <div class="sheet">
+        <div class="hero">
+            <div class="brand">
+                <img class="logo" src="${logoUrl}" alt="SSA Logo">
+                <div>
+                    <h1>Siva Suresh Agency</h1>
+                    <p>PVT Towers, 37/10, Selvam Nagar, Erode - 638011<br>Phone: +91 93666 40060 | Email: sivasureshagency@gmail.com</p>
+                </div>
+            </div>
+            <div class="meta">
+                <p><strong>Invoice No:</strong> ${order.id}</p>
+                <p><strong>Date:</strong> ${invoiceDate.toLocaleDateString('en-IN')}</p>
+                <p><strong>Due Date:</strong> ${dueDate.toLocaleDateString('en-IN')}</p>
+                <p><strong>Payment:</strong> ${order.payment || 'COD'}</p>
+                <p><strong>Status:</strong> <span class="chip">${order.status || 'Processing'}</span></p>
+            </div>
         </div>
-        <div class="meta">
-            <p><strong>Invoice No:</strong> ${order.id}</p>
-            <p><strong>Date:</strong> ${new Date(order.date || now.toISOString()).toLocaleDateString('en-IN')}</p>
-            <p><strong>Payment:</strong> ${order.payment || 'COD'}</p>
-            <p><strong>Status:</strong> ${order.status || 'Processing'}</p>
+
+        <div class="body">
+            <div class="grid">
+                <div class="box">
+                    <h3>Bill To</h3>
+                    <p><strong>${shipping.name}</strong></p>
+                    <p>${shipping.email}</p>
+                    <p>${shipping.phone}</p>
+                    <p>${shippingLine || 'Address not available'}</p>
+                </div>
+                <div class="box">
+                    <h3>Notes</h3>
+                    <p>Thank you for choosing Siva Suresh Agency.</p>
+                    <p>For support, contact +91 93666 40060.</p>
+                    <p>This is a computer-generated invoice.</p>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr><th>Item</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="right">Amount</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+
+            <div class="totals">
+                <div><span>Subtotal</span><span>&#8377;${subtotal.toLocaleString('en-IN')}</span></div>
+                <div><span>Shipping</span><span>&#8377;${shippingCharge.toLocaleString('en-IN')}</span></div>
+                <div class="grand"><span>Total</span><span>&#8377;${(order.total || 0).toLocaleString('en-IN')}</span></div>
+            </div>
+
+            <div class="foot">
+                <span>Invoice generated on ${new Date().toLocaleString('en-IN')}</span>
+                <span>www.sivasureshagency.com</span>
+            </div>
         </div>
-    </div>
-
-    <div class="box">
-        <p><strong>Bill To</strong></p>
-        <p>${shipping.name || currentUser?.name || 'Customer'}</p>
-        <p>${shipping.email || currentUser?.email || ''}</p>
-        <p>${shipping.phone || currentUser?.phone || ''}</p>
-        <p>${[shipping.address, shipping.city, shipping.pincode].filter(Boolean).join(', ') || 'Address not provided'}</p>
-    </div>
-
-    <table>
-        <thead>
-            <tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Amount</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-    </table>
-
-    <div class="totals">
-        <div><span>Subtotal</span><span>&#8377;${subtotal.toLocaleString('en-IN')}</span></div>
-        <div><span>Shipping</span><span>&#8377;${shippingCharge.toLocaleString('en-IN')}</span></div>
-        <div class="grand"><span>Total</span><span>&#8377;${(order.total || 0).toLocaleString('en-IN')}</span></div>
     </div>
 </body>
 </html>`;
@@ -1520,6 +1605,24 @@ function initHeroParticles() {
         shape.className = 'hero-shape hero-shape-' + i;
         hero.appendChild(shape);
     }
+}
+
+function initMobileMarqueeAutoScroll() {
+    if (window.innerWidth > 768) return;
+    const track = document.querySelector('.marquee-track');
+    if (!track || track.dataset.loopReady === '1') return;
+
+    const items = Array.from(track.children);
+    if (!items.length) return;
+
+    items.forEach(node => {
+        const clone = node.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true');
+        clone.tabIndex = -1;
+        track.appendChild(clone);
+    });
+
+    track.dataset.loopReady = '1';
 }
 
 function revealElements() {
