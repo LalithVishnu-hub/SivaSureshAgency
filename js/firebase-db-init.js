@@ -101,6 +101,9 @@ console.log('[backend-init] Starting Supabase initialization...');
 
     client.auth.onAuthStateChange((_event, session) => {
         _refreshCachedUserFromSession(session || null);
+        if (_event === 'PASSWORD_RECOVERY') {
+            window.dispatchEvent(new CustomEvent('ssa:passwordRecovery'));
+        }
     });
 
     class ColRef {

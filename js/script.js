@@ -403,6 +403,26 @@ function updateWishlistCount() {
     if (el) { el.textContent = wishlist.length; el.style.display = wishlist.length > 0 ? 'flex' : 'none'; }
 }
 
+// ===== Password Recovery Modal =====
+function showPasswordRecoveryModal() {
+    const modal = document.getElementById('authModal');
+    if (!modal) return;
+    modal.innerHTML = `<div class="modal modal-sm" style="padding:30px 28px;max-width:420px;"><div style="text-align:center;margin-bottom:18px;"><i class="fas fa-lock" style="font-size:2.2rem;color:#0066cc;"></i><h3 style="margin:10px 0 4px;">Set New Password</h3><p style="color:var(--text-muted);font-size:0.87rem;">Enter your new password below.</p></div><div class="form-group"><label>New Password *</label><input type="password" id="recoveryNewPwd" placeholder="Min 6 characters"></div><div class="form-group"><label>Confirm Password *</label><input type="password" id="recoveryConfirmPwd" placeholder="Confirm new password"></div><p id="recoveryMsg" style="display:none;font-size:0.85rem;margin:8px 0;"></p><button class="btn btn-gradient btn-full" onclick="handlePasswordRecoverySave()"><i class="fas fa-lock"></i> Save New Password</button></div>`;
+    modal.classList.add('active');
+}
+async function handlePasswordRecoverySave() {
+    const pwd  = (document.getElementById('recoveryNewPwd')?.value  || '').trim();
+    const conf = (document.getElementById('recoveryConfirmPwd')?.value || '').trim();
+    const msg  = document.getElementById('recoveryMsg');
+    const show = (t, ok) => { if (!msg) return; msg.textContent = t; msg.style.color = ok ? '#10b981' : '#ef4444'; msg.style.display = 'block'; };
+    if (pwd.length < 6) { show('Password must be at least 6 characters'); return; }
+    if (pwd !== conf)   { show('Passwords do not match'); return; }
+    try {
+        await window.auth.updatePassword(pwd);
+        show('Password updated!', true);
+        setTimeout(() => { closeAuthModal(); showToast('Password updated successfully!'); }, 1500);
+    } catch (e) { show(e.message || 'Failed to update password'); }
+}
 // ===== DOM Ready =====
 document.addEventListener('DOMContentLoaded', () => {
     initCommon();
@@ -410,6 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page === 'home') initHomePage();
     if (page === 'categories') initCategoriesPage();
     if (page === 'contact') initContactPage();
+    // Password recovery handler — fires when user clicks the reset link in their email
+    window.addEventListener('ssa:passwordRecovery', showPasswordRecoveryModal);
     // Auto-sync any localStorage orders that failed to save during a previous session
     if (currentUser) {
         console.log('[app] User logged in as:', currentUser.email);
@@ -1285,7 +1307,6 @@ async function handleRegister() {
     if (window.auth && typeof window.auth.signUpWithEmailAndPassword === 'function') {
         try {
             await window.auth.signUpWithEmailAndPassword(email, password, { firstName, lastName, phone, name: (firstName + ' ' + lastName).trim() });
-            showToast('Verification email sent. Please verify and then sign in.');
         } catch (e) {
             document.getElementById('regEmailError').textContent = e.message || 'Registration failed';
             document.getElementById('regEmailError').style.display = 'block';
@@ -1334,7 +1355,9 @@ async function openAccountPanel() {
         } catch(e) { console.warn('[account]', e.message); }
     }
     const localOrders = JSON.parse(localStorage.getItem('ssa_orders_' + currentUser.email) || '[]');
-    const orders = firestoreOrders.length > 0 ? firestoreOrders : localOrders;
+    // For authenticated Supabase users trust the database; do not fall back to stale localStorage
+    const isAuthenticatedUser = !!(window.getCurrentUser && window.getCurrentUser());
+    const orders = (firestoreOrders.length > 0 || isAuthenticatedUser) ? firestoreOrders : localOrders;
     const avatar = localStorage.getItem('ssa_avatar_' + currentUser.email) || '';
     const avatarHtml = avatar ? `<img src="${avatar}" alt="Avatar" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.15);">` : `<i class="fas fa-user-circle" style="font-size:72px;color:#0066cc;"></i>`;
     modal.innerHTML = `<div class="modal account-modal-v2">
